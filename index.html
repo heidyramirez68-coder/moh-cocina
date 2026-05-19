@@ -564,7 +564,14 @@ async function saveSemName(val){
   await save('/semanaInfo/'+wk()+'/semName', val||null);
   setSyncBar('✓ Nombre guardado','sok');
 }
-function changeWeek(dir){const d=new Date(weekStart);d.setDate(d.getDate()+dir*7);weekStart=d;updateWkLabel();startPolling();}
+function changeWeek(dir){
+  var d=new Date(weekStart);
+  d.setDate(d.getDate()+dir*7);
+  weekStart=d;
+  presMonth=d.getMonth();
+  updateWkLabel();
+  startPolling();
+}
 function updateWkLabel(){
   const end=new Date(weekStart);end.setDate(end.getDate()+6);
   const fmt=dt=>dt.toLocaleDateString('es-DO',{day:'numeric',month:'short'});
