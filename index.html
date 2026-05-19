@@ -774,14 +774,14 @@ function renderLista(){
     <div class="pcard">
       <input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" 
         value="${lblA}" placeholder="Ej: 19A" data-f="lblA" onchange="saveSILabel(this)">
-      <input class="pci" type="number" id="siA" value="${semA||''}" placeholder="0" onchange="saveSI()">
+      <input class="pci" type="number" id="siA" value="${semA||0}" placeholder="0" onchange="saveSI()">
     </div>
     <div class="pcard">
       <input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" 
         value="${lblB}" placeholder="Ej: 20B" data-f="lblB" onchange="saveSILabel(this)">
-      <input class="pci" type="number" id="siB" value="${semB||''}" placeholder="0" onchange="saveSI()">
+      <input class="pci" type="number" id="siB" value="${semB||0}" placeholder="0" onchange="saveSI()">
     </div>
-    <div class="pcard"><div class="pcl">Staff + Internos</div><input class="pci" style="color:#16a34a" type="number" id="siS" value="${staff||''}" placeholder="50" onchange="saveSI()"></div>
+    <div class="pcard"><div class="pcl">Staff + Internos</div><input class="pci" style="color:#16a34a" type="number" id="siS" value="${staff||50}" placeholder="50" onchange="saveSI()"></div>
     <div class="pcard" style="background:#e8f0fe"><div class="pcl">Total personas</div><div class="pci" style="display:block">${total}</div></div>
   </div>`;
   <div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:5px">🍽 Comidas por día (Lunes a Domingo)</div>
@@ -980,7 +980,7 @@ async function renderPresupuesto(){
       <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👔 Staff semanal (USD)</label>
       <input class="binp" type="number" id="pstaff" value="${staffUSD}" placeholder="900">
       <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👥 Grupos ${MESES[presMonth]} — total mes (USD)</label>
-      <input class="binp" type="number" id="pgrp" value="${grpUSD||''}" placeholder="Ej: 25690">
+      <input class="binp" type="number" id="pgrp" value="${grpUSD||0}" placeholder="Ej: 25690">
       <label style="font-size:10px;font-weight:700;color:#d97706;display:block;margin-bottom:4px">💰 Presupuesto para Ramona esta semana (RD$)</label>
       <input class="binp" type="number" id="pram" value="${ramBudgetRD||''}" placeholder="Ej: 50000">
       <button class="bbtn" onclick="savePresupuesto()">💾 Guardar presupuesto</button>
