@@ -251,7 +251,7 @@ const DB={
 };
 
 // ── ROLES ─────────────────────────────────────────────────
-const ROLES={1111:'cocinera',2222:'ramona',6421:'jeidi'};
+var ROLES={}; ROLES[1111]='cocinera'; ROLES[2222]='ramona'; ROLES[6421]='jeidi';
 const RNAMES={cocinera:'👩‍🍳 Cocinera',ramona:'👩‍💼 Ramona — Supervisora',jeidi:'🛒 Jeidi — Encargada'};
 const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const MEALS=['☀️ Desayuno','🍽 Almuerzo','📦 Neverita','🌙 Cena'];
@@ -459,7 +459,7 @@ function buildCats(){
 
 
 // ── STATE ─────────────────────────────────────────────────
-let role=null, weekStart=getMonday(new Date()), curDay=0, curMeal=0;
+var role=null, weekStart=getMonday(new Date()), curDay=0, curMeal=0;
 let weekData={}, listaData={}, semInfo={}, presData={}, precios={};
 let checked={}, stockFil='todos', presMonth=new Date().getMonth();
 let pollTimer=null, listaTiendaOverride={}, listaUnidadOverride={};
@@ -476,15 +476,16 @@ function fmtUSD(n){return '$ '+Number(Math.abs(n)).toLocaleString('en-US',{minim
 
 // ── LOGIN ─────────────────────────────────────────────────
 document.getElementById('loginBtn').onclick=function(){
-  const pin=parseInt(document.getElementById('pinInp').value);
-  const r=ROLES[pin];
+  var pin=parseInt(document.getElementById('pinInp').value);
+  var r=ROLES[pin];
   if(!r){document.getElementById('loginErr').style.display='block';return;}
+  document.getElementById('loginErr').style.display='none';
   role=r;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
   setupApp();
 };
-document.getElementById('pinInp').addEventListener('keyup',e=>{if(e.key==='Enter')document.getElementById('loginBtn').click();});
+document.getElementById('pinInp').addEventListener('keyup',function(e){if(e.key==='Enter')document.getElementById('loginBtn').click();});
 document.getElementById('outBtn').onclick=function(){
   role=null;clearInterval(pollTimer);
   document.getElementById('loginScreen').style.display='flex';
@@ -734,107 +735,126 @@ function calcListaTotal(){
 }
 
 function renderLista(){
-  // Budget for Ramona
-  const ramBudgetRD=Number(semInfo.ramBudget||0);
-  const {totalRD}=calcListaTotal();
-  const ramRestante=ramBudgetRD-totalRD;
+  var ramBudgetRD=Number(semInfo.ramBudget||0);
+  var tot=calcListaTotal();
+  var totalRD=tot.totalRD;
+  var ramRestante=ramBudgetRD-totalRD;
+  var semName=semInfo.semName||'';
+  var semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50);
+  var total=semA+semB+staff;
+  var comprados=Object.values(listaData).filter(function(v){return v&&v.c;}).length;
+  var conQty=Object.values(listaData).filter(function(v){return v&&v.q>0;}).length;
+  var html='<div style="background:white;border-bottom:1px solid #e5e7eb;padding:8px">';
 
-  const semName=semInfo.semName||'';
-  const semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50);
-  const total=semA+semB+staff;
-  const comprados=Object.values(listaData).filter(v=>v&&v.c).length;
-  const conQty=Object.values(listaData).filter(v=>v&&v.q>0).length;
-
-  let html=`<div style="background:white;border-bottom:1px solid #e5e7eb;padding:8px">`;
-
-  // Budget display for Ramona
+  // Budget display
   if(ramBudgetRD>0){
-    const pct2=Math.min(100,Math.round(totalRD/ramBudgetRD*100));
-    const bc2=pct2<70?'#16a34a':pct2<90?'#d97706':'#dc2626';
-    html+=`<div style="background:${ramRestante>=0?'#f0fdf4':'#fee2e2'};border:1px solid ${ramRestante>=0?'#86efac':'#fca5a5'};border-radius:8px;padding:10px;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;margin-bottom:4px">💰 Presupuesto asignado</div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:${ramRestante>=0?'#16a34a':'#dc2626'}">${fmtRD(Math.abs(ramRestante))}</div>
-          <div style="font-size:10px;color:#6b7280">${ramRestante>=0?'Disponible':'Excedido'} de ${fmtRD(ramBudgetRD)}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:16px;font-weight:700;color:#374151">${fmtRD(totalRD)}</div>
-          <div style="font-size:10px;color:#6b7280">Llevado en lista</div>
-        </div>
-      </div>
-      <div class="bbar" style="height:8px;background:#e5e7eb;border-radius:4px;margin-top:6px"><div style="height:8px;border-radius:4px;background:${bc2};width:${pct2}%"></div></div>
-    </div>`;
+    var pct2=Math.min(100,Math.round(totalRD/ramBudgetRD*100));
+    var bc2=pct2<70?'#16a34a':pct2<90?'#d97706':'#dc2626';
+    var bgc=ramRestante>=0?'#f0fdf4':'#fee2e2';
+    var bdc=ramRestante>=0?'#86efac':'#fca5a5';
+    var amc=ramRestante>=0?'#16a34a':'#dc2626';
+    var amt=ramRestante>=0?'Disponible':'Excedido';
+    html+='<div style="background:'+bgc+';border:1px solid '+bdc+';border-radius:8px;padding:10px;margin-bottom:8px">';
+    html+='<div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;margin-bottom:4px">Presupuesto asignado</div>';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center">';
+    html+='<div><div style="font-size:20px;font-weight:800;color:'+amc+'">'+fmtRD(Math.abs(ramRestante))+'</div>';
+    html+='<div style="font-size:10px;color:#6b7280">'+amt+' de '+fmtRD(ramBudgetRD)+'</div></div>';
+    html+='<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#374151">'+fmtRD(totalRD)+'</div>';
+    html+='<div style="font-size:10px;color:#6b7280">Llevado en lista</div></div></div>';
+    html+='<div style="height:8px;background:#e5e7eb;border-radius:4px;margin-top:6px"><div style="height:8px;border-radius:4px;background:'+bc2+';width:'+pct2+'%"></div></div>';
+    html+='</div>';
   }
 
-  const lblA=semInfo.lblA||'Semana A';
-  const lblB=semInfo.lblB||'Semana B';
-  html+=`<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:6px">👥 Personas esta semana</div>
-  <div class="pgrid">
-    <div class="pcard">
-      <input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" 
-        value="${lblA}" placeholder="Ej: 19A" data-f="lblA" onchange="saveSILabel(this)">
-      <input class="pci" type="number" id="siA" value="${semA||0}" placeholder="0" onchange="saveSI()">
-    </div>
-    <div class="pcard">
-      <input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" 
-        value="${lblB}" placeholder="Ej: 20B" data-f="lblB" onchange="saveSILabel(this)">
-      <input class="pci" type="number" id="siB" value="${semB||0}" placeholder="0" onchange="saveSI()">
-    </div>
-    <div class="pcard"><div class="pcl">Staff + Internos</div><input class="pci" style="color:#16a34a" type="number" id="siS" value="${staff||50}" placeholder="50" onchange="saveSI()"></div>
-    <div class="pcard" style="background:#e8f0fe"><div class="pcl">Total personas</div><div class="pci" style="display:block">${total}</div></div>
-  </div>`;
-  <div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:5px">🍽 Comidas por día (Lunes a Domingo)</div>
-  <div style="overflow-x:auto;margin-bottom:8px"><table style="width:100%;border-collapse:collapse;font-size:11px">
-    <tr style="background:#f8f9fa">
-      <td style="padding:5px 6px;font-weight:700;color:#6b7280;white-space:nowrap"></td>
-      ${DAYS.map(d=>`<td style="padding:5px 4px;text-align:center;font-weight:700;color:#6b7280">${d.slice(0,2)}</td>`).join('')}
-    </tr>
-    ${MEALS.map((m,mi)=>`<tr>
-      <td style="padding:5px 6px;font-weight:600;font-size:10px;white-space:nowrap;background:#fafafa">${m}</td>
-      ${DAYS.map((d,di)=>{
-        const key='meal_'+mi+'_'+di;
-        const val=semInfo[key]||'';
-        return `<td style="padding:3px 2px"><input type="number" min="0" inputmode="numeric" placeholder="0" value="${val}" data-k="${key}" onchange="saveMealDay(this)" style="width:100%;padding:4px 2px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:12px;text-align:center;outline:none;background:${val?'#fef3c7':'#fafafa'};font-weight:${val?'700':'400'}"></td>`;
-      }).join('')}
-    </tr>`).join('')}
-  </table></div>
-  </div>
-  <div style="background:#0d4db5;color:white;padding:7px 12px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:12px;font-weight:700">🛒 Lista de compras (${fmtRD(totalRD)})</span>
-    <span style="font-size:10px;background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:20px">${comprados}/${conQty} ✓</span>
-  </div>`;
+  // Semana name
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+  html+='<span style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap">Semana:</span>';
+  html+='<input type="text" value="'+semName+'" placeholder="Ej: 19A y 20B" style="flex:1;padding:6px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:700;color:#0d4db5;outline:none" onchange="saveSemName(this.value)">';
+  html+='</div>';
+
+  // Personas
+  var lblA=semInfo.lblA||'Semana A';
+  var lblB=semInfo.lblB||'Semana B';
+  html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:6px">Personas esta semana</div>';
+  html+='<div class="pgrid">';
+  html+='<div class="pcard"><input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" value="'+lblA+'" placeholder="Ej: 19A" data-f="lblA" onchange="saveSILabel(this)"><input class="pci" type="number" id="siA" value="'+(semA||0)+'" placeholder="0" onchange="saveSI()"></div>';
+  html+='<div class="pcard"><input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" value="'+lblB+'" placeholder="Ej: 20B" data-f="lblB" onchange="saveSILabel(this)"><input class="pci" type="number" id="siB" value="'+(semB||0)+'" placeholder="0" onchange="saveSI()"></div>';
+  html+='<div class="pcard"><div class="pcl">Staff + Internos</div><input class="pci" style="color:#16a34a" type="number" id="siS" value="'+(staff||50)+'" placeholder="50" onchange="saveSI()"></div>';
+  html+='<div class="pcard" style="background:#e8f0fe"><div class="pcl">Total personas</div><div class="pci" style="display:block">'+total+'</div></div>';
+  html+='</div>';
+
+  // Comidas por dia
+  html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:5px">Comidas por dia (Lunes a Domingo)</div>';
+  html+='<div style="overflow-x:auto;margin-bottom:8px"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html+='<tr style="background:#f8f9fa"><td style="padding:5px 6px;font-weight:700;color:#6b7280"></td>';
+  for(var di=0;di<7;di++) html+='<td style="padding:5px 4px;text-align:center;font-weight:700;color:#6b7280">'+DAYS[di].slice(0,2)+'</td>';
+  html+='<td style="padding:5px 6px;text-align:center;font-weight:700;color:#0d4db5;background:#e8f0fe">Total</td></tr>';
+  for(var mi=0;mi<4;mi++){
+    var rowTotal=0;
+    html+='<tr><td style="padding:5px 6px;font-weight:600;font-size:10px;white-space:nowrap;background:#fafafa">'+MEALS[mi]+'</td>';
+    for(var di2=0;di2<7;di2++){
+      var key='meal_'+mi+'_'+di2;
+      var val=semInfo[key]||'';
+      if(val)rowTotal+=Number(val);
+      var bg=val?'#fef3c7':'#fafafa';
+      var fw=val?'700':'400';
+      html+='<td style="padding:3px 2px"><input type="number" min="0" inputmode="numeric" placeholder="0" value="'+val+'" data-k="'+key+'" onchange="saveMealDay(this)" style="width:100%;padding:4px 2px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:12px;text-align:center;outline:none;background:'+bg+';font-weight:'+fw+'"></td>';
+    }
+    html+='<td style="padding:5px 6px;text-align:center;font-weight:800;font-size:13px;color:#0d4db5;background:#e8f0fe;white-space:nowrap">'+(rowTotal||'—')+'</td>';
+    html+='</tr>';
+  }
+  html+='</table></div></div>';
+
+  // Header bar
+  html+='<div style="background:#0d4db5;color:white;padding:7px 12px;display:flex;justify-content:space-between;align-items:center">';
+  html+='<span style="font-size:12px;font-weight:700">Lista de compras ('+fmtRD(totalRD)+')</span>';
+  html+='<span style="font-size:10px;background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:20px">'+comprados+'/'+conQty+' comprados</span>';
+  html+='</div>';
 
   // Products by tienda
-  for(const t of TIENDAS){
-    const prods=ALL_CATS.flatMap(c=>c.items).filter(p=>(listaData[p.id]?.ti||DTIENDA[p.id]||'S')===t);
-    const conQ=prods.filter(p=>listaData[p.id]&&listaData[p.id].q>0);
-    const pend=conQ.filter(p=>!listaData[p.id].c).length;
-    const comp=conQ.filter(p=>listaData[p.id]&&listaData[p.id].c).length;
-    html+=`<div class="thdr"><span class="tname">${TLBL[t]}</span><span class="tcnt">${pend} pendientes · ${comp} ✓</span></div>`;
-    for(const p of prods){
-      const item=listaData[p.id]||{};
-      const qty=item.q||'';const done=item.c||false;
-      const pr=item.pr||'';const u=item.u||p.u;
-      const stock=Number(weekData[sk(p.id)]||0);
-      const used=totalUsed(p.id);const queda=Math.max(0,stock-used);
-      const prRD=Number(pr||precios[p.id]||0);
-      const subtotal=qty&&prRD?Number(qty)*prRD:0;
-      html+=`<div class="li-row${done?' done':''}">
-        <div style="flex:1">
-          <div class="li-name"${done?' style="text-decoration:line-through;opacity:0.5"':''}>${p.n}</div>
-          <div class="li-det">${queda>0?`<span class="li-stock" style="color:#16a34a">Queda: ${queda}</span>`:stock>0?`<span class="li-stock" style="color:#dc2626">Agotado</span>`:''} ${subtotal>0?'· '+fmtRD(subtotal):''}</div>
-        </div>
-        <input class="qi${qty?' hq':''}" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="${qty}" data-id="${p.id}" onchange="onLiQty(this)">
-        <select class="sel" data-id="${p.id}" onchange="onLiUnit(this)">
-          ${UNIDADES.map(un=>`<option value="${un}"${un===u?' selected':''}>${un}</option>`).join('')}
-        </select>
-        <input class="qi${pr?' hq':''}" type="number" min="0" step="1" inputmode="decimal" placeholder="RD$" value="${pr}" data-id="${p.id}" ${role==='jeidi'?'onchange="onLiPr(this)"':'readonly'} style="width:65px;background:${pr?'#e8f0fe':'#fafafa'};border-color:${pr?'#1a6ef5':'#e5e7eb'};${role!=='jeidi'?'cursor:not-allowed;opacity:0.7':''}">
-        <select class="sel" data-id="${p.id}" onchange="onLiTienda(this)" style="font-size:9px;max-width:72px;background:${listaData[p.id]?.ti?'#fef3c7':'white'}">
-          ${TIENDAS.map(ti=>`<option value="${ti}"${(listaData[p.id]?.ti||DTIENDA[p.id]||'S')===ti?' selected':''}>${{P:'PriceSmart',S:'Supermercado',C:'Carnicería',M:'Mercadito',A:'Almoloya',CA:'Café Monte Alto',MT:'Monte Alto'}[ti]}</option>`).join('')}
-        </select>
-        <button class="chk${done?' on':''}" onclick="toggleLi('${p.id}')">${done?'✓':'○'}</button>
-      </div>`;
+  for(var ti=0;ti<TIENDAS.length;ti++){
+    var t=TIENDAS[ti];
+    var prods=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){return (listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:DTIENDA[p.id]||'S')===t;});
+    var conQ=prods.filter(function(p){return listaData[p.id]&&listaData[p.id].q>0;});
+    var pend=conQ.filter(function(p){return !listaData[p.id].c;}).length;
+    var comp2=conQ.filter(function(p){return listaData[p.id]&&listaData[p.id].c;}).length;
+    html+='<div class="thdr"><span class="tname">'+TLBL[t]+'</span><span class="tcnt">'+pend+' pendientes · '+comp2+' ✓</span></div>';
+    for(var pi=0;pi<prods.length;pi++){
+      var p=prods[pi];
+      var item=listaData[p.id]||{};
+      var qty=item.q!=null?item.q:'';
+      var done=item.c||false;
+      var pr=item.pr!=null?item.pr:'';
+      var u=item.u||p.u;
+      var curTi=item.ti||DTIENDA[p.id]||'S';
+      var stock=Number(weekData[sk(p.id)]||0);
+      var used=totalUsed(p.id);
+      var queda=Math.max(0,stock-used);
+      var subtotal=qty&&pr?Number(qty)*Number(pr):0;
+      var stockTxt=queda>0?'<span style="color:#16a34a;font-weight:600">Queda: '+queda+'</span>':stock>0?'<span style="color:#dc2626;font-weight:600">Agotado</span>':'';
+      html+='<div class="li-row'+(done?' done':'')+'">';
+      html+='<div style="flex:1"><div class="li-name"'+(done?' style="text-decoration:line-through;opacity:0.5"':'')+'>'+p.n+'</div>';
+      html+='<div class="li-det">'+stockTxt+(subtotal>0?' '+fmtRD(subtotal):'')+'</div></div>';
+      html+='<input class="qi'+(qty?' hq':'')+'" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="'+qty+'" data-id="'+p.id+'" onchange="onLiQty(this)">';
+      // Unit selector
+      var unitOpts='';
+      for(var ui=0;ui<UNIDADES.length;ui++) unitOpts+='<option value="'+UNIDADES[ui]+'"'+(UNIDADES[ui]===u?' selected':'')+'>'+UNIDADES[ui]+'</option>';
+      html+='<select class="sel" data-id="'+p.id+'" onchange="onLiUnit(this)">'+unitOpts+'</select>';
+      // Price (jeidi only)
+      if(role==='jeidi'){
+        html+='<input class="qi'+(pr?' hq':'')+'" type="number" min="0" step="1" inputmode="decimal" placeholder="RD$" value="'+pr+'" data-id="'+p.id+'" onchange="onLiPr(this)" style="width:65px;background:'+(pr?'#e8f0fe':'#fafafa')+';border-color:'+(pr?'#1a6ef5':'#e5e7eb')+'">';
+      } else {
+        html+='<span style="font-size:11px;color:#6b7280;white-space:nowrap">'+(pr?fmtRD(Number(pr)):'')+'</span>';
+      }
+      // Tienda selector
+      var tiOpts='';
+      for(var tii=0;tii<TIENDAS.length;tii++){
+        var tv=TIENDAS[tii];
+        var tnames={P:'PriceSmart',S:'Supermercado',C:'Carniceria',M:'Mercadito',A:'Almoloya',CA:'Cafe Monte Alto',MT:'Monte Alto'};
+        tiOpts+='<option value="'+tv+'"'+(tv===curTi?' selected':'')+'>'+tnames[tv]+'</option>';
+      }
+      html+='<select class="sel" data-id="'+p.id+'" onchange="onLiTienda(this)" style="font-size:9px;max-width:78px">'+tiOpts+'</select>';
+      html+='<button class="chk'+(done?' on':'')+'" onclick="toggleLi(\''+p.id+'\')">'+( done?'✓':'○')+'</button>';
+      html+='</div>';
     }
   }
   document.getElementById('listaWrap').innerHTML=html;
@@ -982,7 +1002,7 @@ async function renderPresupuesto(){
       <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👥 Grupos ${MESES[presMonth]} — total mes (USD)</label>
       <input class="binp" type="number" id="pgrp" value="${grpUSD||0}" placeholder="Ej: 25690">
       <label style="font-size:10px;font-weight:700;color:#d97706;display:block;margin-bottom:4px">💰 Presupuesto para Ramona esta semana (RD$)</label>
-      <input class="binp" type="number" id="pram" value="${ramBudgetRD||''}" placeholder="Ej: 50000">
+      <input class="binp" type="number" id="pram" value="${ramBudgetRD||0}" placeholder="Ej: 50000">
       <button class="bbtn" onclick="savePresupuesto()">💾 Guardar presupuesto</button>
     </div>`;
   }
@@ -1275,7 +1295,7 @@ function downloadHistorial(){
     Object.values(hist).reverse().forEach(e=>{
       Object.values(e.resumen||{}).forEach(v=>{
         if(v.usado>0||v.comprado>0){
-          csv+=`"${e.semana}","${e.fecha}","${v.n}","${v.u}",${v.stock||0},${v.usado||0},${v.quedo||0},${v.comprado||0},${v.precio||0},${v.costo||0},${((v.costo||0)/tasa).toFixed(2)}\n`;
+          csv+='"'+e.semana+'","'+e.fecha+'","'+v.n+'","'+v.u+'",'+( v.stock||0)+','+(v.usado||0)+','+(v.quedo||0)+','+(v.comprado||0)+','+(v.precio||0)+','+(v.costo||0)+','+((v.costo||0)/tasa).toFixed(2)+'\n';
         }
       });
     });
