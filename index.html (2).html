@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Cocina MOH</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a1a;min-height:100vh;font-size:14px}
+/* LOGIN */
+#loginScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:linear-gradient(135deg,#0d4db5,#1a6ef5)}
+.lcard{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center}
+.llogo{font-size:48px;margin-bottom:8px}
+.ltitle{color:white;font-size:22px;font-weight:700;margin-bottom:4px}
+.lsub{color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:24px}
+.llbl{font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;display:block;text-align:left}
+.linp{width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:12px;font-size:22px;text-align:center;letter-spacing:8px;font-weight:700;outline:none}
+.linp:focus{border-color:#1a6ef5}
+.lbtn{width:100%;padding:13px;background:#1a6ef5;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px}
+.lerr{color:#dc2626;font-size:12px;text-align:center;margin-top:8px;display:none}
+/* APP SHELL */
+#appScreen{display:none}
+.hdr{color:white;padding:10px 14px 7px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+.hdr-b{background:#1a6ef5}.hdr-d{background:#0d4db5}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.htitle{font-size:14px;font-weight:700}
+.hsub{font-size:10px;opacity:0.8}
+.wknav{display:flex;align-items:center;gap:4px}
+.wkb{background:rgba(255,255,255,0.2);border:none;color:white;width:26px;height:26px;border-radius:7px;font-size:16px;cursor:pointer;line-height:1}
+.wkl{font-size:10px;font-weight:600;min-width:128px;text-align:center;background:rgba(255,255,255,0.15);padding:4px 6px;border-radius:7px}
+.outb{background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 9px;border-radius:7px;font-size:11px;cursor:pointer}
+.rlbl{background:rgba(255,255,255,0.22);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.sync{padding:4px 14px;font-size:11px;text-align:center;min-height:22px}
+.sb{background:#0d4db5}.sd{background:#0a3d8f}
+.sok{color:#86efac}.serr{color:#fca5a5}.sing{color:#fde68a}
+/* TABS */
+.tabs{display:flex;background:white;border-bottom:1px solid #e5e7eb;overflow-x:auto;scrollbar-width:none;position:sticky;top:57px;z-index:99}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;min-width:52px;padding:8px 3px;font-size:10px;font-weight:600;color:#6b7280;border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;text-align:center}
+.tab.on{color:#0d4db5;border-bottom-color:#0d4db5}
+/* DAY/MEAL */
+.days{display:flex;gap:4px;padding:7px 10px;overflow-x:auto;background:white;border-bottom:1px solid #e5e7eb;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.db{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid #e5e7eb;background:white;cursor:pointer;white-space:nowrap;color:#6b7280}
+.db.on{background:#1a6ef5;border-color:#1a6ef5;color:white}
+.mrow{display:flex;gap:4px;padding:5px 10px;background:#fafafa;border-bottom:1px solid #e5e7eb}
+.mb{flex:1;padding:5px 2px;border-radius:7px;font-size:9px;font-weight:600;border:1.5px solid #e5e7eb;background:white;cursor:pointer;color:#6b7280;text-align:center;line-height:1.4}
+.mb.on{background:#e8f0fe;border-color:#1a6ef5;color:#1a6ef5}
+/* SEARCH */
+.srch{padding:6px 10px;background:white;border-bottom:1px solid #e5e7eb}
+.srch input{width:100%;padding:7px 12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;background:#fafafa;outline:none}
+.srch input:focus{border-color:#1a6ef5;background:white}
+/* PRODUCT ROWS */
+.colh{display:grid;gap:3px;padding:4px 10px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em}
+.c3{grid-template-columns:1fr 68px 68px}
+.c4{grid-template-columns:1fr 55px 55px 55px}
+.cat{padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#0d4db5;background:#e8f0fe;border-bottom:1px solid #c7d8fc}
+.row{display:grid;gap:3px;padding:7px 10px;border-bottom:1px solid #e5e7eb;align-items:center;background:white}
+.pname{font-size:12px;font-weight:600;color:#1a1a1a;line-height:1.3}
+.pbrand{font-size:9px;color:#9ca3af}
+.punit{font-size:10px;color:#6b7280}
+.inp{width:100%;padding:5px 3px;border:1.5px solid #e5e7eb;border-radius:7px;font-size:13px;text-align:center;background:#fafafa;color:#1a1a1a;outline:none;font-weight:600}
+.inp:focus{border-color:#1a6ef5;background:white}
+.inp.gs{background:#dcfce7;border-color:#86efac;color:#15803d}
+.inp.gu{background:#fef3c7;border-color:#fcd34d;color:#92400e}
+.inp:disabled{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;cursor:not-allowed}
+.bw{background:#e5e7eb;border-radius:3px;height:3px;margin-top:2px;max-width:80px}
+.bf{height:3px;border-radius:3px}
+/* PANELS */
+.panel{display:none}.panel.on{display:block}
+.scr{overflow-y:auto}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px}
+.stat{background:white;border-radius:9px;padding:8px;text-align:center;border:0.5px solid #e5e7eb}
+.sn{font-size:20px;font-weight:800;line-height:1}
+.sl{font-size:9px;color:#6b7280;margin-top:2px;font-weight:600;text-transform:uppercase}
+/* FILTERS */
+.frow{display:flex;gap:4px;padding:6px 10px;overflow-x:auto;background:white;border-bottom:1px solid #e5e7eb;scrollbar-width:none}
+.frow::-webkit-scrollbar{display:none}
+.fc{padding:4px 9px;border-radius:20px;font-size:10px;font-weight:600;border:1.5px solid #e5e7eb;background:white;cursor:pointer;white-space:nowrap;color:#6b7280}
+.fc.on{background:#0d4db5;border-color:#0d4db5;color:white}
+/* BADGES */
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.br{background:#fee2e2;color:#dc2626}.ba{background:#fef3c7;color:#d97706}.bg{background:#dcfce7;color:#16a34a}
+.bp{background:#dbeafe;color:#1e40af}.bs{background:#d1fae5;color:#065f46}.bc{background:#ffe4e6;color:#9f1239}
+.bm{background:#fef9c3;color:#713f12}.bca{background:#ede9fe;color:#6d28d9}.bmt{background:#fce7f3;color:#9d174d}
+/* ITEMS */
+.item{display:flex;align-items:center;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:white;gap:7px}
+.item.done{background:#f0fdf4}
+.iname{font-size:12px;font-weight:600;color:#1a1a1a}
+.idet{font-size:10px;color:#6b7280;margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.chk{width:30px;height:30px;border-radius:50%;border:2px solid #e5e7eb;background:white;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chk.on{background:#16a34a;border-color:#16a34a;color:white}
+/* LISTA COMPRAS */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
+.pcard{background:white;border-radius:9px;padding:9px;border:0.5px solid #e5e7eb}
+.pcl{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px}
+.pci{width:100%;border:none;outline:none;font-size:20px;font-weight:800;color:#0d4db5;padding:0;background:transparent}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 8px 8px}
+.mc{background:#fafafa;border-radius:7px;padding:7px;border:0.5px solid #e5e7eb}
+.mcl{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:2px}
+.mci{width:100%;border:none;outline:none;font-size:15px;font-weight:700;color:#1a1a1a;padding:0;background:transparent}
+.thdr{padding:7px 12px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+.tname{font-size:12px;font-weight:700}
+.tcnt{font-size:10px;color:#6b7280;background:#e5e7eb;padding:2px 6px;border-radius:20px}
+.li-row{display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:white;gap:5px}
+.li-row.done{background:#f0fdf4}
+.li-name{font-size:12px;font-weight:600;color:#1a1a1a;flex:1}
+.li-det{font-size:10px;color:#6b7280;margin-top:1px}
+.li-stock{font-size:10px;font-weight:600}
+.qi{width:52px;padding:4px 3px;border:1.5px solid #e5e7eb;border-radius:7px;font-size:12px;text-align:center;font-weight:700;outline:none}
+.qi:focus{border-color:#0d4db5}
+.qi.hq{background:#fef3c7;border-color:#fcd34d}
+.sel{padding:4px 3px;border:1.5px solid #e5e7eb;border-radius:7px;font-size:10px;outline:none;background:white;color:#1a1a1a}
+.sel:focus{border-color:#0d4db5}
+.pri-row{display:flex;align-items:center;padding:4px 0;border-bottom:0.5px solid #f3f4f6;gap:4px}
+.pri-inp{width:68px;padding:4px 5px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:12px;text-align:right;outline:none}
+.pri-inp:focus{border-color:#0d4db5}
+.pri-inp.hp{background:#e8f0fe;border-color:#1a6ef5;font-weight:600}
+/* PRESUPUESTO */
+.bcard{background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #e5e7eb}
+.btit{font-size:13px;font-weight:700;color:#0d4db5;margin-bottom:3px}
+.bsub{font-size:11px;color:#6b7280;margin-bottom:8px}
+.bbar{background:#e5e7eb;border-radius:5px;height:10px;margin:5px 0}
+.bbarf{height:10px;border-radius:5px}
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.bst{background:#f8f9fa;border-radius:8px;padding:8px;text-align:center}
+.bstn{font-size:16px;font-weight:700}
+.bstl{font-size:9px;color:#6b7280;text-transform:uppercase;margin-top:2px}
+.binp{width:100%;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:7px;font-size:13px;outline:none;margin-bottom:6px;color:#1a1a1a}
+.binp:focus{border-color:#0d4db5}
+.bbtn{width:100%;padding:10px;background:#0d4db5;color:white;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px}
+.gbtn{width:100%;padding:10px;background:#16a34a;color:white;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px}
+.dlbtn{width:calc(100% - 16px);display:block;margin:8px;padding:10px;background:#7c3aed;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:center}
+.mtabs{display:flex;gap:4px;margin-bottom:8px;overflow-x:auto;scrollbar-width:none}
+.mtabs::-webkit-scrollbar{display:none}
+.mtab{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;border:1.5px solid #e5e7eb;background:white;cursor:pointer;white-space:nowrap;color:#6b7280}
+.mtab.on{background:#0d4db5;border-color:#0d4db5;color:white}
+.prow{display:flex;align-items:center;padding:5px 0;border-bottom:0.5px solid #f3f4f6;gap:5px}
+.prn{font-size:11px;font-weight:500;flex:1}
+/* RESUMEN */
+.rh{display:grid;grid-template-columns:90px repeat(7,1fr);gap:2px;padding:4px 8px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase}
+.rr{display:grid;grid-template-columns:90px repeat(7,1fr);gap:2px;padding:5px 8px;border-bottom:1px solid #e5e7eb;align-items:center;background:white}
+.rp{font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc{text-align:center;font-size:10px;font-weight:600;color:#9ca3af}
+.rc.hv{color:#0d4db5;background:#e8f0fe;border-radius:4px;padding:1px 0}
+/* HISTORIAL */
+.hcard{background:white;border-radius:9px;margin:7px 8px;padding:11px;border:0.5px solid #e5e7eb}
+.htit{font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:2px}
+.hsu{font-size:10px;color:#6b7280;margin-bottom:7px}
+.hi{display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #f3f4f6;font-size:10px}
+.empty{padding:28px 16px;text-align:center;color:#6b7280}
+.ei{font-size:32px;margin-bottom:7px}
+.et{font-size:13px;font-weight:500}
+.es{font-size:11px;opacity:0.7;margin-top:3px}
+.bud-box{background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px;margin-bottom:8px}
+.bud-lbl{font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:3px}
+.bud-num{font-size:22px;font-weight:800;color:#92400e}
+.bud-sub{font-size:10px;color:#b45309;margin-top:2px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="llogo">🍽</div>
+  <div class="ltitle">Cocina Mission of Hope</div>
+  <div class="lsub">Ingresa tu código de acceso</div>
+  <div class="lcard">
+    <label class="llbl">Código</label>
+    <input class="linp" type="password" id="pinInp" maxlength="4" inputmode="numeric" placeholder="••••">
+    <button class="lbtn" id="loginBtn">Entrar</button>
+    <div class="lerr" id="loginErr">Código incorrecto</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <div class="hdr" id="appHdr">
+    <div class="hdr-top">
+      <div><div class="htitle" id="hdrTitle"></div><div class="hsub">Mission of Hope</div></div>
+      <div style="display:flex;align-items:center;gap:5px">
+        <div class="wknav" id="wkNav" style="display:none">
+          <button class="wkb" id="wkPrev">‹</button>
+          <div class="wkl" id="wkLbl"></div>
+          <button class="wkb" id="wkNext">›</button>
+        </div>
+        <button class="outb" id="outBtn">Salir</button>
+      </div>
+    </div>
+    <span class="rlbl" id="roleLbl"></span>
+  </div>
+  <div style="display:flex;align-items:center;background:#0a3d8f">
+  <div class="sync" id="syncBar" style="flex:1;margin:0">Conectando...</div>
+  <button onclick="fetchAll()" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:3px 10px;font-size:11px;cursor:pointer;white-space:nowrap;height:100%">🔄 Actualizar</button>
+</div>
+
+  <!-- COCINERA VIEW -->
+  <div id="cocView" style="display:none">
+    <div class="days" id="dayTabs"></div>
+    <div class="mrow" id="mealTabs"></div>
+    <div class="srch"><input type="search" id="srchCoc" placeholder="🔍 Buscar por número o nombre..."></div>
+    <div class="colh c3"><div>Producto</div><div style="text-align:center">Stock</div><div style="text-align:center">Usamos</div></div>
+    <div class="scr" id="cocList" style="height:calc(100vh - 320px)"></div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div id="admView" style="display:none">
+    <div class="tabs" id="admTabs"></div>
+    <div class="panel on" id="pStock">
+      <div class="stats">
+        <div class="stat"><div class="sn" style="color:#dc2626" id="stC">—</div><div class="sl">Crítico</div></div>
+        <div class="stat"><div class="sn" style="color:#d97706" id="stB">—</div><div class="sl">Bajo</div></div>
+        <div class="stat"><div class="sn" style="color:#16a34a" id="stO">—</div><div class="sl">OK</div></div>
+      </div>
+      <div class="frow" id="stockFil"></div>
+      <div class="srch"><input type="search" id="srchSt" placeholder="🔍 Buscar..."></div>
+      <div class="scr" id="stockList" style="height:calc(100vh - 290px)"></div>
+    </div>
+    <div class="panel" id="pLista">
+      <div class="scr" id="listaWrap" style="height:calc(100vh - 135px)"></div>
+    </div>
+    <div class="panel" id="pResumen">
+      <div class="srch"><input type="search" id="srchRes" placeholder="🔍 Buscar..."></div>
+      <div class="rh"><div>Producto</div><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sa</div><div>Do</div></div>
+      <div class="scr" id="resList" style="height:calc(100vh - 215px)"></div>
+    </div>
+    <div class="panel" id="pCorregir">
+      <div class="days" id="dayTabsA"></div>
+      <div class="mrow" id="mealTabsA"></div>
+      <div class="srch"><input type="search" id="srchCo" placeholder="🔍 Buscar..."></div>
+      <div class="colh c3"><div>Producto</div><div style="text-align:center">Stock</div><div style="text-align:center">Usamos</div></div>
+      <div class="scr" id="corrList" style="height:calc(100vh - 350px)"></div>
+    </div>
+    <div class="panel" id="pPresupuesto">
+      <div class="scr" id="presWrap" style="height:calc(100vh - 135px);padding:8px"></div>
+    </div>
+    <div class="panel" id="pHistorial">
+      <div id="histWrap" style="max-height:calc(100vh - 135px);overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE REST API ─────────────────────────────────────
+const DB_URL='https://moh--cocina-default-rtdb.firebaseio.com';
+const DB={
+  async get(p){try{const r=await fetch(DB_URL+p+'.json?t='+Date.now());return await r.json();}catch(e){return null;}},
+  async set(p,v){try{await fetch(DB_URL+p+'.json',{method:'PUT',body:JSON.stringify(v),headers:{'Content-Type':'application/json'}});}catch(e){}},
+  async push(p,v){try{await fetch(DB_URL+p+'.json',{method:'POST',body:JSON.stringify(v),headers:{'Content-Type':'application/json'}});}catch(e){}}
+};
+
+// ── ROLES ─────────────────────────────────────────────────
+const ROLES={1111:'cocinera',2222:'ramona',6421:'jeidi'};
+const RNAMES={cocinera:'👩‍🍳 Cocinera',ramona:'👩‍💼 Ramona — Supervisora',jeidi:'🛒 Jeidi — Encargada'};
+const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const MEALS=['☀️ Desayuno','🍽 Almuerzo','📦 Neverita','🌙 Cena'];
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const TIENDAS=['P','S','C','M','A','CA','MT'];
+const TLBL={P:'🔵 PriceSmart',S:'🟢 Supermercado',C:'🔴 Carnicería',M:'🟡 Mercadito',A:'💧 Almoloya',CA:'☕ Café Monte Alto',MT:'🏔 Monte Alto'};
+const TCLS={P:'bp',S:'bs',C:'bc',M:'bm',A:'bca',CA:'bmt',MT:'bca'};
+const UNIDADES=['Unidad','Caja','Libras','Paquete','Galón','30 und','25 und','8 und','Rama','Cartones','Lata'];
+
+// ── PRODUCTS ──────────────────────────────────────────────
+// Default tienda per product
+const DTIENDA={};
+// Cocina products (253)
+const CATS_COCINA=[
+  {cat:'🧹 Limpieza y Desinfección (Cocina)',items:[
+    {id:'c001',n:'1. Cloro',u:'Caja',t:'P'},{id:'c002',n:'2. Toallitas desinfectantes',u:'Unidad',t:'P'},
+    {id:'c003',n:'3. Fabuloso',u:'Unidad',t:'P'},{id:'c004',n:'4. Baygon',u:'Unidad',t:'S'},
+    {id:'c005',n:'5. Fundas basura pequeñas (4 gal)',u:'Paquete',t:'P'},{id:'c006',n:'6. Fundas basura grandes blancas (13 gal)',u:'Paquete',t:'P'},
+    {id:'c007',n:'7. Fundas basura grandes negras (55 gal)',u:'Paquete',t:'P'},{id:'c008',n:'8. Lava platos grande',u:'Unidad',t:'S'},
+    {id:'c009',n:'9. Lava platos pequeño',u:'Unidad',t:'S'},{id:'c010',n:'10. Jabón en pasta AXION',u:'Unidad',t:'S'},
+    {id:'c011',n:'11. Esponjas de fregar',u:'Unidad',t:'S'},{id:'c012',n:'12. Brillo Scotch-Brite',u:'Unidad',t:'S'},
+    {id:'c013',n:'13. Spray Lysol Bleach verde',u:'Unidad',t:'S'},{id:'c014',n:'14. Desgrasante AB',u:'Unidad',t:'S'},
+    {id:'c015',n:'15. Limpiador pailas CIF verde',u:'Unidad',t:'S'},{id:'c016',n:'16. Escoba Kika',u:'Unidad',t:'S'},
+    {id:'c017',n:'17. Trapeador Kika',u:'Unidad',t:'S'},{id:'c018',n:'18. Fundas de Hielo',u:'Unidad',t:'A'},
+    {id:'c019',n:'19. Botellones de agua',u:'Unidad',t:'A'},{id:'c020',n:'20. Guantes negros',u:'Unidad-Caja',t:'S'},
+    {id:'c021',n:'21. Guantes de limpieza',u:'Unidad-Caja',t:'S'},{id:'c022',n:'22. Gorritos de Limpieza',u:'Unidad-Caja',t:'S'},
+    {id:'c023',n:'23. Gel antibacterial Manitas Limpias',u:'Galón',t:'S'},{id:'c024',n:'24. Ambientador Glade',u:'Unidad',t:'P'},
+    {id:'c025',n:'25. Delantales',u:'Unidad',t:'S'},{id:'c026',n:'26. Toallas Amarillas PriceSmart',u:'Unidad',t:'P'},
+    {id:'c027',n:'27. Guantes desechables plásticos SANI GUARD',u:'Unidad',t:'S'}]},
+  {cat:'🥡 Desechables y Empaque',items:[
+    {id:'c028',n:'28. Plato con divisiones Plastifar',u:'100 und-Paq',t:'S'},{id:'c029',n:'29. Plato No. 9 Plastifar',u:'25 und-Paq',t:'S'},
+    {id:'c030',n:'30. Cucharas plásticas Plastifar',u:'25 und-Paq',t:'S'},{id:'c031',n:'31. Vasos para agua Plastifar',u:'50 und-Paq',t:'S'},
+    {id:'c032',n:'32. Papel de baño Scoot',u:'Paquete 24u',t:'S'},{id:'c033',n:'33. Servilletas Niveo PriceSmart',u:'1000 und',t:'P'},
+    {id:'c034',n:'34. Papel toalla Kleenex',u:'Paquete 4u',t:'P'},{id:'c035',n:'35. Papel aluminio Foodservice PriceSmart',u:'12x1000',t:'P'},
+    {id:'c036',n:'36. Plastic food wrap PriceSmart verde',u:'12x2000',t:'P'},{id:'c037',n:'37. Freezer bags grandes (1 gal) PriceSmart azules',u:'50 und',t:'P'},
+    {id:'c038',n:'38. Freezer bags pequeñas PriceSmart rojas',u:'130 und',t:'P'},{id:'c039',n:'39. Bolsa slider pequeña Papel Mamei',u:'Paquete',t:'S'},
+    {id:'c040',n:'40. Envase',u:'Unidad',t:'S'}]},
+  {cat:'🥚 Huevos, Lácteos y Frío',items:[
+    {id:'c041',n:'41. Huevo Del Sol',u:'30 unidades',t:'M'},{id:'c042',n:'42. Leche Listamilk',u:'Unidad-Cajas',t:'P'},
+    {id:'c043',n:'43. Leche evaporada Carnation',u:'Unidad-paq',t:'P'},{id:'c044',n:'44. Crema de leche Rica/Elle&Vive',u:'Unidad-Cajas',t:'P'},
+    {id:'c045',n:'45. Leche con queso Carnation',u:'Unidad-Cajas',t:'S'},{id:'c046',n:'46. Leche de almendra GF Silk',u:'Unidad-Caja',t:'P'},
+    {id:'c047',n:'47. Leche de Coco Goya',u:'Unidad-Paq',t:'P'},{id:'c048',n:'48. Yogurt normal Yoka',u:'Unidad',t:'S'},
+    {id:'c049',n:'49. Yogurt sin azúcar Yoka',u:'Unidad',t:'S'},{id:'c050',n:'50. Mantequilla Sosua-President',u:'Unidad-Caja',t:'P'},
+    {id:'c051',n:'51. Margarina Dorina',u:'Unidad',t:'P'},{id:'c052',n:'52. Queso Parmesano granulado KRAFT',u:'Unidad',t:'P'},
+    {id:'c053',n:'53. Queso crema/Philadelphia',u:'Unidad-Caja',t:'P'},{id:'c054',n:'54. Queso Mexicano/Cheddar',u:'Unidad',t:'P'},
+    {id:'c055',n:'55. Queso barra entera Mozzarella',u:'Unidad',t:'P'},{id:'c056',n:'56. Queso rallado Mozzarella',u:'Unidad',t:'P'},
+    {id:'c057',n:'57. Bacon Chef VH y SH',u:'Unidad',t:'P'},{id:'c058',n:'58. Jamón barra entera Picnic',u:'Unidad',t:'P'}]},
+  {cat:'🫙 Aceites, Condimentos y Salsas',items:[
+    {id:'c059',n:'59. Aceite vegetal El Gallo',u:'Galón Jumbo',t:'P'},{id:'c060',n:'60. Aceite de oliva Extra Virgen PriceSmart',u:'Grande',t:'P'},
+    {id:'c061',n:'61. Aceite de coco Eva',u:'Unidad',t:'S'},{id:'c062',n:'62. Sal en granos Linda',u:'Libras',t:'S'},
+    {id:'c063',n:'63. Tarro de sal Grande Linda',u:'Unidad',t:'S'},{id:'c064',n:'64. Azúcar Crema',u:'Libras',t:'P'},
+    {id:'c065',n:'65. Azúcar Blanca',u:'Libras',t:'P'},{id:'c066',n:'66. Pasta de tomate Linda',u:'1 Kilo',t:'S'},
+    {id:'c067',n:'67. Salsa de Tomate Prego',u:'Unidades',t:'P'},{id:'c068',n:'68. Mayonesa Baldom/Hellmans GF',u:'Unidad',t:'S'},
+    {id:'c069',n:'69. Ketchup Baldom',u:'Unidad',t:'S'},{id:'c070',n:'70. BBQ sauce KRAFT',u:'Unidad',t:'P'},
+    {id:'c071',n:'71. Mostaza Frenchs',u:'Unidad',t:'S'},{id:'c072',n:'72. Salsa Tostitos Roja Mild',u:'Unidad',t:'S'},
+    {id:'c073',n:'73. Salsa Tostitos Queso Mild',u:'Unidad',t:'S'},{id:'c074',n:'74. Aderezo Onion Vinagreta Badia',u:'Unidad',t:'S'},
+    {id:'c075',n:'75. Aderezo Onion Vinagreta GF Badia',u:'Unidad',t:'S'},{id:'c076',n:'76. Aderezo Ranch Azul PriceSmart',u:'Unidad',t:'P'},
+    {id:'c077',n:'77. Aderezo Caesar Morado PriceSmart',u:'Unidad',t:'P'},{id:'c078',n:'78. Aderezo Italiano verde PriceSmart',u:'Unidad',t:'P'},
+    {id:'c079',n:'79. Aderezo Mostaza',u:'Unidad',t:'S'},{id:'c080',n:'80. Vinagreta Aguacate',u:'Unidad',t:'S'},
+    {id:'c081',n:'81. Vinagre (no blanco) Ranchero',u:'Galón',t:'S'},{id:'c082',n:'82. Agrio de Naranja Goya',u:'Galón',t:'P'},
+    {id:'c083',n:'83. Agrio de Limón Goya',u:'Galón',t:'P'},{id:'c084',n:'84. Pepinillos Vlasic Ovals',u:'Unidad',t:'P'},
+    {id:'c085',n:'85. Salsa Guacamole Herdez',u:'Unidad',t:'S'},{id:'c086',n:'86. Creamy Salsa Verde taco Old El Paso',u:'Unidad',t:'P'},
+    {id:'c087',n:'87. Taco Salsa Mild Old El Paso',u:'Unidad',t:'P'},{id:'c088',n:'88. Taco Salsa Medium Old El Paso',u:'Unidad',t:'P'},
+    {id:'c089',n:'89. Salsa picante para alitas PriceSmart',u:'Galón',t:'P'},{id:'c090',n:'90. Salsa picante Ranchero',u:'Unidad',t:'S'},
+    {id:'c091',n:'91. Aceite aerosol Pam',u:'Unidad',t:'S'},{id:'c092',n:'92. Salsa China Ranchero',u:'Unidad',t:'S'},
+    {id:'c093',n:'93. Leche de coco La Famosa',u:'Unidad',t:'S'},{id:'c094',n:'94. Salsa para pizza Linda',u:'Unidad',t:'S'}]},
+  {cat:'🌿 Especias y Sazones',items:[
+    {id:'c095',n:'95. Sazón Líquido Ranchero',u:'Unidad',t:'S'},{id:'c096',n:'96. Goya Adobo completo',u:'Unidad',t:'S'},
+    {id:'c097',n:'97. Sazón con azafrán Goya',u:'Unidad',t:'S'},{id:'c098',n:'98. Rotisserie Chicken Badia',u:'Unidad',t:'P'},
+    {id:'c099',n:'99. Cilantro Badia',u:'Unidad',t:'S'},{id:'c100',n:'100. Paprika Badia',u:'Unidad',t:'S'},
+    {id:'c101',n:'101. Taco Seasoning Badia',u:'Unidad',t:'S'},{id:'c102',n:'102. Perejil Badia',u:'Unidad',t:'S'},
+    {id:'c103',n:'103. Sazón completo Maggie',u:'Unidad',t:'S'},{id:'c104',n:'104. Orégano Badia',u:'Unidad',t:'S'},
+    {id:'c105',n:'105. Romero Badia',u:'Unidad',t:'S'},{id:'c106',n:'106. Albahaca (Basil) Badia',u:'Unidad',t:'S'},
+    {id:'c107',n:'107. Cebolla granulada Badia',u:'Unidad',t:'S'},{id:'c108',n:'108. Ajo granulado en polvo Badia',u:'Unidad',t:'P'},
+    {id:'c109',n:'109. Caldo de Pollo Doña Gallina',u:'Unidad-Caja',t:'P'},{id:'c110',n:'110. Pimienta negra molida Badia',u:'Unidad',t:'S'},
+    {id:'c111',n:'111. Curry powder Badia',u:'Unidad',t:'S'},{id:'c112',n:'112. Canela molida Badia',u:'Unidad',t:'S'},
+    {id:'c113',n:'113. Sal entera Himalaya molinillo Badia',u:'Unidad',t:'P'},{id:'c114',n:'114. Pimienta entera molinillo Badia',u:'Unidad',t:'P'},
+    {id:'c115',n:'115. Canela entera',u:'Unidad',t:'S'},{id:'c116',n:'116. Clavo dulce entero',u:'Unidad',t:'S'},
+    {id:'c117',n:'117. Nuez moscada',u:'Unidad',t:'S'},{id:'c118',n:'118. Tomillo entero (moro haitiano)',u:'Unidad',t:'S'},
+    {id:'c119',n:'119. Romero fresco (moro haitiano)',u:'Unidad',t:'S'},{id:'c120',n:'120. Coco seco (moro haitiano)',u:'Unidad',t:'M'}]},
+  {cat:'🌾 Granos, Harinas y Pastas',items:[
+    {id:'c121',n:'121. Arroz Surco',u:'25 Libras',t:'S'},{id:'c122',n:'122. Habichuela roja entera Don Rodrigo',u:'Libras',t:'P'},
+    {id:'c123',n:'123. Gandules verdes en lata La Famosa',u:'Unidad',t:'P'},{id:'c124',n:'124. Habichuela negra en lata Linda',u:'Unidad',t:'S'},
+    {id:'c125',n:'125. Maíz en lata La Famosa',u:'Unidad-Paq',t:'P'},{id:'c126',n:'126. Petit pois Linda',u:'Unidad',t:'S'},
+    {id:'c127',n:'127. Harina de trigo Blanquita',u:'Grande',t:'P'},{id:'c128',n:'128. Espagueti Princesa',u:'Unidad-Paq',t:'P'},
+    {id:'c129',n:'129. Lasaña Princesa',u:'Unidad',t:'S'},{id:'c130',n:'130. Macaroni Princesa',u:'Unidad',t:'S'},
+    {id:'c131',n:'131. Coditos Princesa',u:'Unidad',t:'S'},{id:'c132',n:'132. Espagueti sin gluten GF',u:'Unidad',t:'S'},
+    {id:'c133',n:'133. Penne sin gluten azul Rummo',u:'Unidad',t:'S'}]},
+  {cat:'🥐 Panadería y Repostería',items:[
+    {id:'c134',n:'134. Pan integral Lumijor',u:'Unidad',t:'S'},{id:'c135',n:'135. Pan blanco Lumijor',u:'Unidad',t:'P'},
+    {id:'c136',n:'136. Pan gluten free Canyon Country',u:'Unidad',t:'P'},{id:'c137',n:'137. Pan de HotDog Lumijor',u:'8 Unidades',t:'P'},
+    {id:'c138',n:'138. Pan de Hamburguesas Lumijor Jumbo',u:'8 Unidades',t:'P'},{id:'c139',n:'139. Tortillas tacos Maria',u:'8 Unidades',t:'S'},
+    {id:'c140',n:'140. Cake Mix Betty Crocker azul PriceSmart',u:'4 Unidades',t:'S'},{id:'c141',n:'141. Brownie Mix Betty Crocker Supreme',u:'Unidad',t:'P'},
+    {id:'c142',n:'142. Brownie Mix Betty Crocker Walnut',u:'Unidad',t:'P'},{id:'c143',n:'143. Frosting Betty Crocker variedades',u:'Unidad',t:'S'},
+    {id:'c144',n:'144. Cookies Mix',u:'Unidad',t:'S'},{id:'c145',n:'145. Pancake Mix buttermilk Krusteaz azul',u:'Grande',t:'P'},
+    {id:'c146',n:'146. Pancake Mix Gluten Free Bob Red Mill',u:'Grain Free',t:'P'},{id:'c147',n:'147. Syrup Mr. Butterworths/Pearl Milling',u:'Unidad',t:'P'},
+    {id:'c148',n:'148. Cherries Country Barn',u:'Unidad',t:'S'},{id:'c149',n:'149. Syrup chocolate Hersheys',u:'Unidad',t:'S'},
+    {id:'c150',n:'150. Syrup fresa Hersheys',u:'Unidad',t:'S'},{id:'c151',n:'151. Piña Rebanada Goya',u:'Unidad',t:'P'},
+    {id:'c152',n:'152. Frutas de lata Goya',u:'Unidad',t:'P'},{id:'c153',n:'153. Vainilla blanca SANILLI REAL',u:'Unidad',t:'S'},
+    {id:'c154',n:'154. Vainilla negra SANILLI REAL',u:'Unidad',t:'S'},{id:'c155',n:'155. Cocoa amarga Munne',u:'Unidad',t:'S'},
+    {id:'c156',n:'156. Cocoa Dulce Munne',u:'Unidad',t:'S'},{id:'c157',n:'157. Tablas de chocolate Munne',u:'Unidad',t:'S'},
+    {id:'c158',n:'158. Polvo de hornear',u:'Unidad',t:'S'},{id:'c159',n:'159. Levadura',u:'Unidad',t:'S'},
+    {id:'c160',n:'160. Baking Soda Arm & Hammer',u:'Unidad',t:'S'},{id:'c161',n:'161. Gelatina variadas',u:'Unidad',t:'S'}]},
+  {cat:'☕ Desayuno y Snacks',items:[
+    {id:'c162',n:'162. Mantequilla de maní Creamy PriceSmart',u:'Unidad',t:'P'},{id:'c163',n:'163. Mantequilla de maní Crunchy',u:'Unidad',t:'P'},
+    {id:'c164',n:'164. Nutella Hazelnut Spread PriceSmart',u:'Unidad',t:'P'},{id:'c165',n:'165. Mantequilla de almendras Kirkland',u:'Unidad',t:'P'},
+    {id:'c166',n:'166. Mermelada fresa Smuckers',u:'Unidad',t:'P'},{id:'c167',n:'167. Mermelada de Uva Welchs',u:'Unidad',t:'S'},
+    {id:'c168',n:'168. Miel de abeja',u:'Unidad',t:'S'},{id:'c169',n:'169. Salami Induveca',u:'Unidad',t:'S'},
+    {id:'c170',n:'170. Chicken Breast lata azul Kirkland',u:'Unidad',t:'P'},{id:'c171',n:'171. Cereales variedades',u:'Unidad',t:'P'},
+    {id:'c172',n:'172. Organic Granola Quaker',u:'Unidad',t:'P'},{id:'c173',n:'173. Multicereal Chocolate Vitalisimo',u:'Unidad',t:'S'},
+    {id:'c174',n:'174. Multicereal Fresas Vitalisimo',u:'Unidad',t:'S'},{id:'c175',n:'175. Barras de proteína Nature Valley',u:'Unidad',t:'S'},
+    {id:'c176',n:'176. Barras granola Soft & Chewy Kirkland',u:'Unidad',t:'P'},{id:'c177',n:'177. Pasas sin semillas',u:'Unidad',t:'S'},
+    {id:'c178',n:'178. Tostitos variedades',u:'Unidad',t:'S'},{id:'c179',n:'179. Tostitos Chunky Salsa Roja Mild',u:'Unidad',t:'S'},
+    {id:'c180',n:'180. Tostitos Salsa de Queso Mild',u:'Unidad',t:'S'},{id:'c181',n:'181. Papitas surtidas Frito Lays',u:'Paq 14u',t:'P'},
+    {id:'c182',n:'182. Flavor Last papas fritas PriceSmart',u:'Unidad-Caja',t:'P'},{id:'c183',n:'183. Galletas sin gluten chocolate chip Full Circle GF',u:'Unidad',t:'P'},
+    {id:'c184',n:'184. Crackers sin gluten',u:'Unidad',t:'S'},{id:'c185',n:'185. Corn Cakes sin gluten',u:'Unidad',t:'S'},
+    {id:'c186',n:'186. Wafers vainilla sin gluten',u:'Unidad',t:'S'},{id:'c187',n:'187. Aviva Soda Crackers',u:'Unidad',t:'S'},
+    {id:'c188',n:'188. Aviva Crackers integral',u:'Unidad',t:'S'},{id:'c189',n:'189. Club Max galleta',u:'Unidad',t:'S'},
+    {id:'c190',n:'190. Galletas Soda Hatuey',u:'Unidad',t:'S'},{id:'c191',n:'191. Galletas Club Social',u:'Unidad',t:'S'},
+    {id:'c192',n:'192. Galletas de Vainilla Oreo',u:'Unidad',t:'S'},{id:'c193',n:'193. Rabito de ajo',u:'Unidad',t:'S'}]},
+  {cat:'🥤 Bebidas',items:[
+    {id:'c194',n:'194. Café Jarabacoa',u:'Unidad',t:'CA'},{id:'c195',n:'195. Cremora para café PriceSmart',u:'Unidad',t:'P'},
+    {id:'c196',n:'196. Fruit Punch Rica',u:'Unidad',t:'S'},{id:'c197',n:'197. Iced Tea Lipton',u:'Unidad',t:'S'},
+    {id:'c198',n:'198. Iced Raspberry Tea Lipton',u:'Unidad',t:'S'},{id:'c199',n:'199. Jugo en polvo TANG',u:'Paquete',t:'S'},
+    {id:'c200',n:'200. Refrescos surtidos grandes',u:'Paquete',t:'S'},{id:'c201',n:'201. Refrescos 20 oz',u:'Paquete',t:'S'},
+    {id:'c202',n:'202. Botellas de agua 16 oz Planeta azul',u:'Paquete',t:'S'}]},
+  {cat:'🥩 Carnes',items:[
+    {id:'c203',n:'203. Carne de res',u:'Libras',t:'C'},{id:'c204',n:'204. Muslo largo de pollo',u:'Libras-Paq',t:'C'},
+    {id:'c205',n:'205. Muslo bate de pollo',u:'Libras-Paq',t:'P'},{id:'c206',n:'206. Pechuga de pollo',u:'Libras-Paq',t:'P'},
+    {id:'c207',n:'207. Chuleta',u:'Libras',t:'C'},{id:'c208',n:'208. Carne molida',u:'Libras-Paq',t:'P'},
+    {id:'c209',n:'209. Steak',u:'Libras',t:'C'},{id:'c210',n:'210. Fajitas de Res',u:'Libras-Paq',t:'P'},
+    {id:'c211',n:'211. Fajitas de Cerdo',u:'Libras-Paq',t:'P'},{id:'c212',n:'212. Salchicha',u:'Unidad-Paq',t:'P'},
+    {id:'c213',n:'213. Burgers',u:'Unidad',t:'S'},{id:'c214',n:'214. Alitas de pollo',u:'Libras-Paq',t:'P'},
+    {id:'c215',n:'215. Masa de cerdo',u:'Libras',t:'C'}]},
+  {cat:'🥦 Vegetales',items:[
+    {id:'c216',n:'216. Tayota',u:'Unidad',t:'M'},{id:'c217',n:'217. Berenjena',u:'Unidad',t:'M'},
+    {id:'c218',n:'218. Cebolla blanca',u:'Libras',t:'M'},{id:'c219',n:'219. Ají cubanela',u:'Libras',t:'M'},
+    {id:'c220',n:'220. Ají morrón',u:'Unidad',t:'M'},{id:'c221',n:'221. Ajo',u:'Libras',t:'M'},
+    {id:'c222',n:'222. Zanahoria',u:'Libras',t:'M'},{id:'c223',n:'223. Lechuga',u:'Unidad',t:'M'},
+    {id:'c224',n:'224. Pepino',u:'Unidad',t:'M'},{id:'c225',n:'225. Tomate',u:'Libras',t:'M'},
+    {id:'c226',n:'226. Puerro fino',u:'Unidad',t:'M'},{id:'c227',n:'227. Puerro grueso',u:'Unidad',t:'M'},
+    {id:'c228',n:'228. Perejil',u:'Rama',t:'M'},{id:'c229',n:'229. Orégano',u:'Libras',t:'M'},
+    {id:'c230',n:'230. Recaíto',u:'Libras',t:'M'},{id:'c231',n:'231. Romero',u:'Rama',t:'M'},
+    {id:'c232',n:'232. Ají picante',u:'Unidad',t:'M'},{id:'c233',n:'233. Ají gustoso',u:'Unidad',t:'M'},
+    {id:'c234',n:'234. Papa Selecta',u:'Libras',t:'M'},{id:'c235',n:'235. Cebolla Roja',u:'Libras',t:'M'},
+    {id:'c236',n:'236. Coco seco',u:'Unidad',t:'M'},{id:'c237',n:'237. Huevos',u:'30 unidades',t:'M'},
+    {id:'c238',n:'238. Guineos verdes',u:'Unidad',t:'M'},{id:'c239',n:'239. Plátanos verdes',u:'Unidad',t:'M'}]},
+  {cat:'🍓 Frutas',items:[
+    {id:'c240',n:'240. Lechoza',u:'Unidad',t:'M'},{id:'c241',n:'241. Melón',u:'Unidad',t:'M'},
+    {id:'c242',n:'242. Piña',u:'Unidad',t:'M'},{id:'c243',n:'243. Sandía',u:'Unidad',t:'M'},
+    {id:'c244',n:'244. Fresas',u:'Libras',t:'M'},{id:'c245',n:'245. Limones',u:'Unidad-Paq',t:'M'},
+    {id:'c246',n:'246. Naranja dulce',u:'Unidad',t:'M'},{id:'c247',n:'247. Naranja agria',u:'Unidad',t:'M'},
+    {id:'c248',n:'248. Mango',u:'Unidad',t:'M'},{id:'c249',n:'249. Aguacate',u:'Unidad',t:'M'},
+    {id:'c250',n:'250. Plátano',u:'Unidad',t:'M'},{id:'c251',n:'251. Manzana',u:'Unidad',t:'S'},
+    {id:'c252',n:'252. Uva',u:'Libras',t:'S'},{id:'c253',n:'253. Guineo maduro',u:'Unidad',t:'M'}]}
+];
+
+const CATS_LIMPIEZA=[
+  {cat:'🧼 Limpieza General',items:[
+    {id:'l001',n:'L1. Papel de baño dormitorios Kleenex',u:'Paquete 3u',t:'P'},{id:'l002',n:'L2. Papel de baño normales Scoot',u:'Paquete 24u',t:'P'},
+    {id:'l003',n:'L3. Papel toalla Kleenex',u:'Paquete 4u',t:'P'},{id:'l004',n:'L4. Ace Brillante',u:'Funda grande',t:'P'},
+    {id:'l005',n:'L5. Detergente en polvo Fresh Scent PriceSmart',u:'Funda',t:'P'},{id:'l006',n:'L6. Baking Soda Arm & Hammer',u:'Unidad',t:'S'},
+    {id:'l007',n:'L7. Cloro Acel',u:'Caja',t:'P'},{id:'l008',n:'L8. Gel antibacterial Manitas Limpias Grandes',u:'Unidad',t:'S'},
+    {id:'l009',n:'L9. Gel antibacterial Manitas Limpias pequeños',u:'Unidad',t:'S'},{id:'l010',n:'L10. Jabón de cuaba Eco Hogar',u:'Caja',t:'P'},
+    {id:'l011',n:'L11. Jabón de manos piña colada Amalfi',u:'Unidad',t:'S'},{id:'l012',n:'L12. Fabuloso (no rojo)',u:'Unidad',t:'P'},
+    {id:'l013',n:'L13. Baygon Raygard',u:'Unidad',t:'S'},{id:'l014',n:'L14. Fundas basura pequeñas (4 gal) PriceSmart',u:'Paquete',t:'P'},
+    {id:'l015',n:'L15. Fundas basura grandes blancas (13 gal) PriceSmart azules',u:'Paquete',t:'P'},{id:'l016',n:'L16. Fundas basura grandes negras (55 gal) PriceSmart',u:'Paquete',t:'P'},
+    {id:'l017',n:'L17. Spray Lysol Bleach verde',u:'Unidad',t:'S'},{id:'l018',n:'L18. Spray Lysol sábanas Azul',u:'Unidad',t:'S'},
+    {id:'l019',n:'L19. Spray ambientador Glade variados',u:'Unidad',t:'P'},{id:'l020',n:'L20. Limpia Cristales Windex',u:'Unidad',t:'S'},
+    {id:'l021',n:'L21. Suavizante de telas Suavitel Azul',u:'Unidad',t:'P'},{id:'l022',n:'L22. Scent Booster bolitas azules PriceSmart',u:'Unidad',t:'P'},
+    {id:'l023',n:'L23. Escoba Kika',u:'Unidad',t:'S'},{id:'l024',n:'L24. Trapeador Kika',u:'Unidad',t:'S'},
+    {id:'l025',n:'L25. Cepillo de Inodoro',u:'Unidad',t:'S'},{id:'l026',n:'L26. Cubos de Limpieza',u:'Unidad',t:'S'},
+    {id:'l027',n:'L27. Toallitas Amarillas',u:'Unidad',t:'S'}]},
+  {cat:'🏠 Vision House y Staff House',items:[
+    {id:'l028',n:'L28. Scrubbing Bubbles Pastillas baños',u:'Unidad',t:'S'},{id:'l029',n:'L29. Lysol Lavanda Mold & Mildew Remover',u:'Unidad',t:'S'},
+    {id:'l030',n:'L30. Lysol All Purpose Cleaner Amarillo',u:'Unidad',t:'S'},{id:'l031',n:'L31. Axion de Limón Lavaplatos',u:'Unidad',t:'S'},
+    {id:'l032',n:'L32. Lavaplatos Axion',u:'Unidad',t:'S'},{id:'l033',n:'L33. Toallitas desinfectantes Clorox',u:'Unidad',t:'S'},
+    {id:'l034',n:'L34. Esponjas de Fregar Scott',u:'Unidad',t:'S'},{id:'l035',n:'L35. Spray Ambientador variados',u:'Unidad',t:'S'},
+    {id:'l036',n:'L36. AirWick para pegar en pared',u:'Unidad',t:'S'},{id:'l037',n:'L37. Spray Ambientadores Freezer variados',u:'Unidad',t:'S'},
+    {id:'l038',n:'L38. Shampoo Suave Almond shea butter',u:'Unidad',t:'S'},{id:'l039',n:'L39. Acondicionador Suave Almond shea butter',u:'Unidad',t:'S'},
+    {id:'l040',n:'L40. Gel de baño Dove deep moisture',u:'Unidad',t:'S'},{id:'l041',n:'L41. Jabón de manos Montargo Rosas',u:'Unidad',t:'S'},
+    {id:'l042',n:'L42. Manitas Limpias Aloe Vera Grande',u:'Unidad',t:'S'},{id:'l043',n:'L43. Manitas Limpias Pequeñas',u:'Unidad',t:'S'},
+    {id:'l044',n:'L44. Jabón de manos Amalfi',u:'Unidad',t:'S'},{id:'l045',n:'L45. Downy Ultimate Fusions In Wash Scent Booster',u:'Unidad',t:'S'},
+    {id:'l046',n:'L46. TIDE Pods Downy Soft Mamei',u:'Unidad',t:'S'},{id:'l047',n:'L47. Absorbente de humedad',u:'Unidad',t:'S'}]},
+  {cat:'📦 Desechables y Empaque (Limpieza)',items:[
+    {id:'l048',n:'L48. Papel Plástico Diamond',u:'Unidad',t:'S'},{id:'l049',n:'L49. Filtro de Máquina de Café',u:'Unidad',t:'S'},
+    {id:'l050',n:'L50. Papel Aluminio',u:'Unidad',t:'S'},{id:'l051',n:'L51. Papel Toalla Kleenex',u:'Unidad',t:'P'},
+    {id:'l052',n:'L52. Papel de baño Kleenex',u:'Unidad',t:'P'},{id:'l053',n:'L53. Freezer Bags Gallon Ziploc',u:'Paquete',t:'S'},
+    {id:'l054',n:'L54. Sandwich Bags Ziploc',u:'Paquete',t:'S'},{id:'l055',n:'L55. Servilletas',u:'Paquete',t:'S'}]},
+  {cat:'🍽 Utensilios y Vajilla',items:[
+    {id:'l056',n:'L56. Tazas',u:'Unidad',t:'S'},{id:'l057',n:'L57. Platos',u:'Unidad',t:'S'},
+    {id:'l058',n:'L58. Bowls',u:'Unidad',t:'S'},{id:'l059',n:'L59. Cuchillos de mesa',u:'Unidad',t:'S'},
+    {id:'l060',n:'L60. Tenedores',u:'Unidad',t:'S'},{id:'l061',n:'L61. Cucharas',u:'Unidad',t:'S'},
+    {id:'l062',n:'L62. Cuchillos de Cocina',u:'Unidad',t:'S'},{id:'l063',n:'L63. Vasos',u:'Unidad',t:'S'},
+    {id:'l064',n:'L64. Copas',u:'Unidad',t:'S'}]}
+];
+
+// Build all products flat list and default tiendas (role-based)
+// ALL_CATS is set after login based on role
+let ALL_CATS=[];
+function buildCats(){
+  ALL_CATS = role==='jeidi' ? [...CATS_COCINA,...CATS_LIMPIEZA] : [...CATS_COCINA];
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{ DTIENDA[p.id]=p.t; }));
+}
+
+
+// ── STATE ─────────────────────────────────────────────────
+let role=null, weekStart=getMonday(new Date()), curDay=0, curMeal=0;
+let weekData={}, listaData={}, semInfo={}, presData={}, precios={};
+let checked={}, stockFil='todos', presMonth=new Date().getMonth();
+let pollTimer=null, listaTiendaOverride={}, listaUnidadOverride={};
+
+function getMonday(d){const dt=new Date(d);const dw=dt.getDay();dt.setDate(dt.getDate()-dw+(dw===0?-6:1));dt.setHours(0,0,0,0);return dt;}
+function wk(){return weekStart.toISOString().slice(0,10).replace(/-/g,'_');}
+function sk(id){return 's_'+id;}
+function dk(d,m,id){return 'd'+d+'_m'+m+'_'+id;}
+function totalUsed(id){let t=0;for(let d=0;d<7;d++)for(let m=0;m<4;m++){const v=weekData[dk(d,m,id)];if(v!=null)t+=Number(v);}return t;}
+function dayUsed(id,d){let t=0;for(let m=0;m<4;m++){const v=weekData[dk(d,m,id)];if(v!=null)t+=Number(v);}return t;}
+function setSyncBar(msg,cls){const b=document.getElementById('syncBar');b.className='sync '+(role==='cocinera'?'sb':'sd')+' '+cls;b.textContent=msg;}
+function fmtRD(n){return 'RD$ '+Number(Math.abs(n)).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtUSD(n){return '$ '+Number(Math.abs(n)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+// ── LOGIN ─────────────────────────────────────────────────
+document.getElementById('loginBtn').onclick=function(){
+  const pin=parseInt(document.getElementById('pinInp').value);
+  const r=ROLES[pin];
+  if(!r){document.getElementById('loginErr').style.display='block';return;}
+  role=r;
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  setupApp();
+};
+document.getElementById('pinInp').addEventListener('keyup',e=>{if(e.key==='Enter')document.getElementById('loginBtn').click();});
+document.getElementById('outBtn').onclick=function(){
+  role=null;clearInterval(pollTimer);
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('pinInp').value='';
+  document.getElementById('loginErr').style.display='none';
+};
+
+// ── SETUP ─────────────────────────────────────────────────
+function setupApp(){
+  buildCats();
+  const isJ=role==='jeidi';
+  document.getElementById('appHdr').className='hdr '+(role==='cocinera'?'hdr-b':'hdr-d');
+  document.getElementById('hdrTitle').textContent=RNAMES[role].split('—')[0].trim();
+  document.getElementById('roleLbl').textContent=RNAMES[role];
+  updateWkLabel();
+  if(role==='cocinera'){
+    document.getElementById('cocView').style.display='block';
+    document.getElementById('admView').style.display='none';
+    document.getElementById('wkNav').style.display='none';
+    renderDayTabs('dayTabs','selDay');renderMealTabs('mealTabs','selMeal');
+    document.getElementById('srchCoc').oninput=()=>renderCocList();
+  } else {
+    document.getElementById('cocView').style.display='none';
+    document.getElementById('admView').style.display='block';
+    document.getElementById('wkNav').style.display='flex';
+    buildAdmTabs();
+    renderDayTabs('dayTabsA','selDayA');renderMealTabs('mealTabsA','selMealA');
+    document.getElementById('srchSt').oninput=()=>renderStockList();
+    document.getElementById('srchRes').oninput=()=>renderResumen();
+    document.getElementById('srchCo').oninput=()=>renderCorregir();
+    buildStockFilters();
+  }
+  document.getElementById('wkPrev').onclick=()=>changeWeek(-1);
+  document.getElementById('wkNext').onclick=()=>changeWeek(1);
+  startPolling();
+}
+
+function buildAdmTabs(){
+  const isJ=role==='jeidi';
+  const tabs=[
+    {id:'pStock',l:'📊 Stock'},{id:'pLista',l:'🛒 Lista'},{id:'pResumen',l:'📅 Resumen'},
+    {id:'pCorregir',l:'✏️ Corregir'},
+    ...(isJ?[{id:'pPresupuesto',l:'💰 Presupuesto'},{id:'pHistorial',l:'🗂 Historial'}]:[{id:'pPresupuesto',l:'💰 Presupuesto'}])
+  ];
+  document.getElementById('admTabs').innerHTML=tabs.map((t,i)=>`<button class="tab${i===0?' on':''}" onclick="showPanel('${t.id}',this)">${t.l}</button>`).join('');
+}
+
+function buildStockFilters(){
+  const chips=[{k:'todos',l:'Todos'},{k:'critico',l:'🔴 Crítico'},{k:'bajo',l:'🟡 Bajo'},{k:'ok',l:'🟢 OK'},
+    {k:'P',l:'PriceSmart'},{k:'S',l:'Supermercado'},{k:'C',l:'Carnicería'},{k:'M',l:'Mercadito'}];
+  document.getElementById('stockFil').innerHTML=chips.map((c,i)=>`<button class="fc${i===0?' on':''}" onclick="setFil('${c.k}',this)">${c.l}</button>`).join('');
+}
+
+function showPanel(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById(id).classList.add('on');el.classList.add('on');
+  if(id==='pLista')renderLista();
+  if(id==='pResumen')renderResumen();
+  if(id==='pPresupuesto')renderPresupuesto();
+  if(id==='pHistorial')renderHistorial();
+  if(id==='pCorregir')renderCorregir();
+}
+
+// ── WEEK ──────────────────────────────────────────────────
+async function saveSemName(val){
+  semInfo.semName=val;
+  await save('/semanaInfo/'+wk()+'/semName', val||null);
+  setSyncBar('✓ Nombre guardado','sok');
+}
+function changeWeek(dir){const d=new Date(weekStart);d.setDate(d.getDate()+dir*7);weekStart=d;updateWkLabel();startPolling();}
+function updateWkLabel(){
+  const end=new Date(weekStart);end.setDate(end.getDate()+6);
+  const fmt=dt=>dt.toLocaleDateString('es-DO',{day:'numeric',month:'short'});
+  const autoLabel=fmt(weekStart)+' – '+fmt(end);
+  const customName=semInfo.semName||'';
+  const lbl=document.getElementById('wkLbl');
+  if(role==='jeidi'){
+    lbl.innerHTML=`<input id="semNameInp" type="text" value="${customName||autoLabel}" placeholder="Ej: 19A y 20B" 
+      style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.5);color:white;font-size:10px;font-weight:600;width:130px;outline:none;text-align:center;padding:2px 0"
+      onchange="saveSemName(this.value)" onclick="this.select()">`;
+  } else {
+    lbl.textContent=customName||autoLabel;
+  }
+}
+
+// ── POLLING ───────────────────────────────────────────────
+function startPolling(){
+  clearInterval(pollTimer);setSyncBar('Conectando...','sing');
+  fetchAll();pollTimer=setInterval(fetchAll,6000);
+}
+async function fetchAll(){
+  try{
+    const [wd,li,si,pd,px]=await Promise.all([
+      DB.get('/semanas/'+wk()),DB.get('/lista/'+wk()),
+      DB.get('/semanaInfo/'+wk()),DB.get('/presupuesto'),DB.get('/precios')
+    ]);
+    weekData=wd||{};listaData=li||{};semInfo=si||{};presData=pd||{};precios=px||{};
+    setSyncBar('✓ En vivo — actualizado','sok');
+    updateWkLabel();
+    refreshView();
+  }catch(e){setSyncBar('⚠ Sin conexión','serr');}
+}
+function refreshView(){
+  if(role==='cocinera'){renderCocList();return;}
+  const a=document.querySelector('.panel.on');
+  if(!a)return;
+  if(a.id==='pStock')renderStockList();
+  if(a.id==='pLista')renderLista();
+  if(a.id==='pResumen')renderResumen();
+  if(a.id==='pCorregir')renderCorregir();
+}
+
+// ── DAY/MEAL TABS ─────────────────────────────────────────
+function renderDayTabs(cid,fn){document.getElementById(cid).innerHTML=DAYS.map((d,i)=>`<button class="db${i===curDay?' on':''}" onclick="${fn}(${i})">${d}</button>`).join('');}
+function renderMealTabs(cid,fn){document.getElementById(cid).innerHTML=MEALS.map((m,i)=>`<button class="mb${i===curMeal?' on':''}" onclick="${fn}(${i})">${m}</button>`).join('');}
+function selDay(i){curDay=i;renderDayTabs('dayTabs','selDay');renderCocList();}
+function selMeal(i){curMeal=i;renderMealTabs('mealTabs','selMeal');renderCocList();}
+function selDayA(i){curDay=i;renderDayTabs('dayTabsA','selDayA');renderCorregir();}
+function selMealA(i){curMeal=i;renderMealTabs('mealTabsA','selMealA');renderCorregir();}
+function setFil(f,el){stockFil=f;document.querySelectorAll('.fc').forEach(c=>c.classList.remove('on'));el.classList.add('on');renderStockList();}
+
+// ── SAVE ──────────────────────────────────────────────────
+async function save(path,val){
+  try{await DB.set(path,val===''?null:val);setSyncBar('✓ Guardado','sok');}
+  catch(e){setSyncBar('⚠ Error al guardar','serr');}
+}
+
+// ── COCINERA ──────────────────────────────────────────────
+function renderCocList(){
+  const q=(document.getElementById('srchCoc').value||'').toLowerCase();
+  let html='';
+  for(const cat of ALL_CATS){
+    const items=cat.items.filter(p=>p.n.toLowerCase().includes(q));
+    if(!items.length)continue;
+    html+=`<div class="cat">${cat.cat}</div>`;
+    for(const p of items){
+      const sv=weekData[sk(p.id)]!=null?weekData[sk(p.id)]:'';
+      const dv=weekData[dk(curDay,curMeal,p.id)]!=null?weekData[dk(curDay,curMeal,p.id)]:'';
+      const stock=Number(sv)||0;const used=totalUsed(p.id);
+      const rem=Math.max(0,stock-used);const pct=stock>0?Math.min(100,Math.round(rem/stock*100)):100;
+      const bc=pct>50?'#16a34a':pct>20?'#d97706':'#dc2626';
+      html+=`<div class="row c3">
+        <div><div class="pname">${p.n}</div><div class="punit">${p.u}${stock>0?' · Queda: '+rem:''}</div>
+        ${stock>0?`<div class="bw"><div class="bf" style="width:${pct}%;background:${bc}"></div></div>`:''}</div>
+        <input class="inp${sv!==''?' gs':''}" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="${sv}" disabled>
+        <input class="inp${dv!==''?' gu':''}" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="${dv}" data-k="${dk(curDay,curMeal,p.id)}" onchange="onCoc(this)">
+      </div>`;
+    }
+  }
+  document.getElementById('cocList').innerHTML=html||'<div class="empty"><div class="ei">🔍</div><div class="et">No encontrado</div></div>';
+}
+async function onCoc(el){
+  const k=el.dataset.k;const v=el.value;
+  if(v===''){delete weekData[k];el.classList.remove('gu');}else{weekData[k]=parseFloat(v);el.classList.add('gu');}
+  await save('/semanas/'+wk()+'/'+k,v===''?null:parseFloat(v));
+}
+
+// ── STOCK STATUS ──────────────────────────────────────────
+function getStatus(id){
+  const stock=Number(weekData[sk(id)]||0);const used=totalUsed(id);
+  if(stock===0&&used===0)return null;
+  const rem=stock-used;const pct=stock>0?Math.min(100,Math.max(0,Math.round(rem/stock*100))):0;
+  if(rem<0||pct<=10)return{type:'critico',rem,stock,used,pct};
+  if(pct<=30)return{type:'bajo',rem,stock,used,pct};
+  return{type:'ok',rem,stock,used,pct};
+}
+
+function renderStockList(){
+  const q=(document.getElementById('srchSt').value||'').toLowerCase();
+  let html='',nC=0,nB=0,nO=0;
+  for(const cat of ALL_CATS){
+    let ch='';
+    for(const p of cat.items){
+      const st=getStatus(p.id);if(!st)continue;
+      if(st.type==='critico')nC++;else if(st.type==='bajo')nB++;else nO++;
+      const t=DTIENDA[p.id]||'S';
+      if(stockFil==='critico'&&st.type!=='critico')continue;
+      if(stockFil==='bajo'&&st.type!=='bajo')continue;
+      if(stockFil==='ok'&&st.type!=='ok')continue;
+      if(['P','S','C','M'].includes(stockFil)&&t!==stockFil)continue;
+      if(q&&!p.n.toLowerCase().includes(q))continue;
+      const isDone=role==='jeidi'&&!!checked[p.id];
+      let badge='';
+      if(st.type==='critico')badge=`<span class="badge br">${st.rem<0?'Agotado':'Crítico: '+st.rem+' '+p.u.split('-')[0]}</span>`;
+      else if(st.type==='bajo')badge=`<span class="badge ba">Bajo: ${st.rem} ${p.u.split('-')[0]}</span>`;
+      else badge=`<span class="badge bg">OK: ${st.rem} ${p.u.split('-')[0]}</span>`;
+      const bc=st.pct>50?'#16a34a':st.pct>20?'#d97706':'#dc2626';
+      ch+=`<div class="item${isDone?' done':''}">
+        <div style="flex:1">
+          <div class="iname"${isDone?' style="text-decoration:line-through;opacity:0.5"':''}>${p.n}</div>
+          <div class="idet"><span class="badge ${TCLS[t]||'bs'}">${TLBL[t]}</span>${badge}</div>
+          <div class="bw" style="max-width:120px"><div class="bf" style="width:${st.pct}%;background:${bc}"></div></div>
+        </div>
+        ${role==='jeidi'?`<button class="chk${isDone?' on':''}" onclick="toggleChk('${p.id}')">${isDone?'✓':'○'}</button>`:''}
+      </div>`;
+    }
+    if(ch)html+=`<div class="cat">${cat.cat}</div>${ch}`;
+  }
+  document.getElementById('stC').textContent=nC;
+  document.getElementById('stB').textContent=nB;
+  document.getElementById('stO').textContent=nO;
+  document.getElementById('stockList').innerHTML=html||'<div class="empty"><div class="ei">📋</div><div class="et">Sin datos</div><div class="es">Las cocineras aún no registraron uso</div></div>';
+}
+function toggleChk(id){checked[id]=!checked[id];renderStockList();}
+
+// ── CORREGIR ──────────────────────────────────────────────
+function renderCorregir(){
+  const q=(document.getElementById('srchCo').value||'').toLowerCase();
+  let html='';
+  for(const cat of ALL_CATS){
+    const items=cat.items.filter(p=>p.n.toLowerCase().includes(q));
+    if(!items.length)continue;
+    html+=`<div class="cat">${cat.cat}</div>`;
+    for(const p of items){
+      const sv=weekData[sk(p.id)]!=null?weekData[sk(p.id)]:'';
+      const dv=weekData[dk(curDay,curMeal,p.id)]!=null?weekData[dk(curDay,curMeal,p.id)]:'';
+      const stock=Number(sv)||0;const used=totalUsed(p.id);
+      const rem=Math.max(0,stock-used);const pct=stock>0?Math.min(100,Math.round(rem/stock*100)):100;
+      const bc=pct>50?'#16a34a':pct>20?'#d97706':'#dc2626';
+      html+=`<div class="row c3">
+        <div><div class="pname">${p.n}</div><div class="punit">${p.u}${stock>0?' · Queda: '+rem:''}</div>
+        ${stock>0?`<div class="bw"><div class="bf" style="width:${pct}%;background:${bc}"></div></div>`:''}</div>
+        <input class="inp${sv!==''?' gs':''}" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="${sv}" data-k="${sk(p.id)}" onchange="onStk(this)">
+        <input class="inp${dv!==''?' gu':''}" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="${dv}" data-k="${dk(curDay,curMeal,p.id)}" onchange="onCorr(this)">
+      </div>`;
+    }
+  }
+  document.getElementById('corrList').innerHTML=html||'<div class="empty"><div class="ei">🔍</div></div>';
+}
+async function onStk(el){const k=el.dataset.k;const v=el.value;if(v===''){delete weekData[k];el.classList.remove('gs');}else{weekData[k]=parseFloat(v);el.classList.add('gs');}await save('/semanas/'+wk()+'/'+k,v===''?null:parseFloat(v));}
+async function onCorr(el){const k=el.dataset.k;const v=el.value;if(v===''){delete weekData[k];el.classList.remove('gu');}else{weekData[k]=parseFloat(v);el.classList.add('gu');}await save('/semanas/'+wk()+'/'+k,v===''?null:parseFloat(v));}
+
+// ── LISTA DE COMPRAS ──────────────────────────────────────
+// Calculate total spent from lista
+function calcListaTotal(){
+  const tasa=Number(presData.tasa||60);
+  let totalRD=0;
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
+    const item=listaData[p.id]||{};
+    const qty=Number(item.q||0);
+    const pr=Number(item.pr||0);
+    if(qty>0&&pr>0)totalRD+=qty*pr;
+  }));
+  return {totalRD,totalUSD:totalRD/tasa};
+}
+
+function renderLista(){
+  // Budget for Ramona
+  const ramBudgetRD=Number(semInfo.ramBudget||0);
+  const {totalRD}=calcListaTotal();
+  const ramRestante=ramBudgetRD-totalRD;
+
+  const semName=semInfo.semName||'';
+  const semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50);
+  const total=semA+semB+staff;
+  const comprados=Object.values(listaData).filter(v=>v&&v.c).length;
+  const conQty=Object.values(listaData).filter(v=>v&&v.q>0).length;
+
+  let html=`<div style="background:white;border-bottom:1px solid #e5e7eb;padding:8px">`;
+
+  // Budget display for Ramona
+  if(ramBudgetRD>0){
+    const pct2=Math.min(100,Math.round(totalRD/ramBudgetRD*100));
+    const bc2=pct2<70?'#16a34a':pct2<90?'#d97706':'#dc2626';
+    html+=`<div style="background:${ramRestante>=0?'#f0fdf4':'#fee2e2'};border:1px solid ${ramRestante>=0?'#86efac':'#fca5a5'};border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;margin-bottom:4px">💰 Presupuesto asignado</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:${ramRestante>=0?'#16a34a':'#dc2626'}">${fmtRD(Math.abs(ramRestante))}</div>
+          <div style="font-size:10px;color:#6b7280">${ramRestante>=0?'Disponible':'Excedido'} de ${fmtRD(ramBudgetRD)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:700;color:#374151">${fmtRD(totalRD)}</div>
+          <div style="font-size:10px;color:#6b7280">Llevado en lista</div>
+        </div>
+      </div>
+      <div class="bbar" style="height:8px;background:#e5e7eb;border-radius:4px;margin-top:6px"><div style="height:8px;border-radius:4px;background:${bc2};width:${pct2}%"></div></div>
+    </div>`;
+  }
+
+  const lblA=semInfo.lblA||'Semana A';
+  const lblB=semInfo.lblB||'Semana B';
+  html+=`<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:6px">👥 Personas esta semana</div>
+  <div class="pgrid">
+    <div class="pcard">
+      <input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" 
+        value="${lblA}" placeholder="Ej: 19A" data-f="lblA" onchange="saveSILabel(this)">
+      <input class="pci" type="number" id="siA" value="${semA||''}" placeholder="0" onchange="saveSI()">
+    </div>
+    <div class="pcard">
+      <input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" 
+        value="${lblB}" placeholder="Ej: 20B" data-f="lblB" onchange="saveSILabel(this)">
+      <input class="pci" type="number" id="siB" value="${semB||''}" placeholder="0" onchange="saveSI()">
+    </div>
+    <div class="pcard"><div class="pcl">Staff + Internos</div><input class="pci" style="color:#16a34a" type="number" id="siS" value="${staff||''}" placeholder="50" onchange="saveSI()"></div>
+    <div class="pcard" style="background:#e8f0fe"><div class="pcl">Total personas</div><div class="pci" style="display:block">${total}</div></div>
+  </div>`;
+  <div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:5px">🍽 Comidas por día (Lunes a Domingo)</div>
+  <div style="overflow-x:auto;margin-bottom:8px"><table style="width:100%;border-collapse:collapse;font-size:11px">
+    <tr style="background:#f8f9fa">
+      <td style="padding:5px 6px;font-weight:700;color:#6b7280;white-space:nowrap"></td>
+      ${DAYS.map(d=>`<td style="padding:5px 4px;text-align:center;font-weight:700;color:#6b7280">${d.slice(0,2)}</td>`).join('')}
+    </tr>
+    ${MEALS.map((m,mi)=>`<tr>
+      <td style="padding:5px 6px;font-weight:600;font-size:10px;white-space:nowrap;background:#fafafa">${m}</td>
+      ${DAYS.map((d,di)=>{
+        const key='meal_'+mi+'_'+di;
+        const val=semInfo[key]||'';
+        return `<td style="padding:3px 2px"><input type="number" min="0" inputmode="numeric" placeholder="0" value="${val}" data-k="${key}" onchange="saveMealDay(this)" style="width:100%;padding:4px 2px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:12px;text-align:center;outline:none;background:${val?'#fef3c7':'#fafafa'};font-weight:${val?'700':'400'}"></td>`;
+      }).join('')}
+    </tr>`).join('')}
+  </table></div>
+  </div>
+  <div style="background:#0d4db5;color:white;padding:7px 12px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:12px;font-weight:700">🛒 Lista de compras (${fmtRD(totalRD)})</span>
+    <span style="font-size:10px;background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:20px">${comprados}/${conQty} ✓</span>
+  </div>`;
+
+  // Products by tienda
+  for(const t of TIENDAS){
+    const prods=ALL_CATS.flatMap(c=>c.items).filter(p=>(listaData[p.id]?.ti||DTIENDA[p.id]||'S')===t);
+    const conQ=prods.filter(p=>listaData[p.id]&&listaData[p.id].q>0);
+    const pend=conQ.filter(p=>!listaData[p.id].c).length;
+    const comp=conQ.filter(p=>listaData[p.id]&&listaData[p.id].c).length;
+    html+=`<div class="thdr"><span class="tname">${TLBL[t]}</span><span class="tcnt">${pend} pendientes · ${comp} ✓</span></div>`;
+    for(const p of prods){
+      const item=listaData[p.id]||{};
+      const qty=item.q||'';const done=item.c||false;
+      const pr=item.pr||'';const u=item.u||p.u;
+      const stock=Number(weekData[sk(p.id)]||0);
+      const used=totalUsed(p.id);const queda=Math.max(0,stock-used);
+      const prRD=Number(pr||precios[p.id]||0);
+      const subtotal=qty&&prRD?Number(qty)*prRD:0;
+      html+=`<div class="li-row${done?' done':''}">
+        <div style="flex:1">
+          <div class="li-name"${done?' style="text-decoration:line-through;opacity:0.5"':''}>${p.n}</div>
+          <div class="li-det">${queda>0?`<span class="li-stock" style="color:#16a34a">Queda: ${queda}</span>`:stock>0?`<span class="li-stock" style="color:#dc2626">Agotado</span>`:''} ${subtotal>0?'· '+fmtRD(subtotal):''}</div>
+        </div>
+        <input class="qi${qty?' hq':''}" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="${qty}" data-id="${p.id}" onchange="onLiQty(this)">
+        <select class="sel" data-id="${p.id}" onchange="onLiUnit(this)">
+          ${UNIDADES.map(un=>`<option value="${un}"${un===u?' selected':''}>${un}</option>`).join('')}
+        </select>
+        <input class="qi${pr?' hq':''}" type="number" min="0" step="1" inputmode="decimal" placeholder="RD$" value="${pr}" data-id="${p.id}" ${role==='jeidi'?'onchange="onLiPr(this)"':'readonly'} style="width:65px;background:${pr?'#e8f0fe':'#fafafa'};border-color:${pr?'#1a6ef5':'#e5e7eb'};${role!=='jeidi'?'cursor:not-allowed;opacity:0.7':''}">
+        <select class="sel" data-id="${p.id}" onchange="onLiTienda(this)" style="font-size:9px;max-width:72px;background:${listaData[p.id]?.ti?'#fef3c7':'white'}">
+          ${TIENDAS.map(ti=>`<option value="${ti}"${(listaData[p.id]?.ti||DTIENDA[p.id]||'S')===ti?' selected':''}>${{P:'PriceSmart',S:'Supermercado',C:'Carnicería',M:'Mercadito',A:'Almoloya',CA:'Café Monte Alto',MT:'Monte Alto'}[ti]}</option>`).join('')}
+        </select>
+        <button class="chk${done?' on':''}" onclick="toggleLi('${p.id}')">${done?'✓':'○'}</button>
+      </div>`;
+    }
+  }
+  document.getElementById('listaWrap').innerHTML=html;
+}
+
+async function saveSILabel(el){
+  const field=el.dataset.f;
+  semInfo[field]=el.value;
+  await save('/semanaInfo/'+wk()+'/'+field, el.value||null);
+}
+async function saveSI(){
+  const info={...semInfo,
+    semA:Number(document.getElementById('siA')?.value||0),
+    semB:Number(document.getElementById('siB')?.value||0),
+    staff:Number(document.getElementById('siS')?.value||50)
+  };
+  semInfo=info;
+  await save('/semanaInfo/'+wk(),info);
+}
+async function saveMealDay(el){
+  const k=el.dataset.k;const v=Number(el.value)||0;
+  semInfo[k]=v;
+  el.style.background=v?'#fef3c7':'#fafafa';
+  el.style.fontWeight=v?'700':'400';
+  await save('/semanaInfo/'+wk()+'/'+k,v||null);
+}
+async function onLiQty(el){
+  const id=el.dataset.id;const qty=el.value===''?null:Number(el.value);
+  const cur=listaData[id]||{};
+  listaData[id]={...cur,q:qty};
+  el.className='qi'+(qty?' hq':'');
+  await save('/lista/'+wk()+'/'+id,listaData[id]);
+  // Update budget display
+  const wrap=document.getElementById('listaWrap');
+  if(wrap){const tot=calcListaTotal();const hdr=wrap.querySelector('[style*="background:#0d4db5"]');if(hdr)hdr.querySelector('span').textContent='🛒 Lista de compras ('+fmtRD(tot.totalRD)+')';}
+}
+async function onLiUnit(el){
+  const id=el.dataset.id;const u=el.value;
+  const cur=listaData[id]||{};
+  listaData[id]={...cur,u};
+  await save('/lista/'+wk()+'/'+id,listaData[id]);
+}
+async function onLiPr(el){
+  const id=el.dataset.id;const pr=el.value===''?null:Number(el.value);
+  const cur=listaData[id]||{};
+  listaData[id]={...cur,pr};
+  el.style.background=pr?'#e8f0fe':'#fafafa';
+  el.style.borderColor=pr?'#1a6ef5':'#e5e7eb';
+  await save('/lista/'+wk()+'/'+id,listaData[id]);
+  // Save to global precios too
+  if(pr)precios[id]=pr;
+  await save('/precios/'+id,pr||null);
+  renderPresupuesto();
+}
+async function onLiTienda(el){
+  const id=el.dataset.id;const ti=el.value;
+  const cur=listaData[id]||{};
+  listaData[id]={...cur,ti};
+  el.style.background=ti!==DTIENDA[id]?'#fef3c7':'white';
+  await save('/lista/'+wk()+'/'+id,listaData[id]);
+}
+async function toggleLi(id){
+  const cur=listaData[id]||{};
+  listaData[id]={...cur,c:!cur.c};
+  await save('/lista/'+wk()+'/'+id,listaData[id]);
+  renderLista();
+}
+
+// ── RESUMEN ───────────────────────────────────────────────
+function renderResumen(){
+  const q=(document.getElementById('srchRes').value||'').toLowerCase();
+  let html='';
+  for(const cat of ALL_CATS){
+    const items=cat.items.filter(p=>p.n.toLowerCase().includes(q));
+    if(!items.length)continue;
+    let ch='';
+    for(const p of items){
+      let cells='',has=false;
+      for(let d=0;d<7;d++){const v=dayUsed(p.id,d);if(v>0)has=true;cells+=`<div class="rc${v>0?' hv':''}">${v>0?v:'—'}</div>`;}
+      if(!has)continue;
+      ch+=`<div class="rr"><div class="rp" title="${p.n}">${p.n}</div>${cells}</div>`;
+    }
+    if(ch)html+=`<div class="cat">${cat.cat}</div>${ch}`;
+  }
+  document.getElementById('resList').innerHTML=html||'<div class="empty"><div class="ei">📅</div><div class="et">Sin movimientos</div></div>';
+}
+
+// ── PRESUPUESTO ───────────────────────────────────────────
+async function renderPresupuesto(){
+  const el=document.getElementById('presWrap');
+  const tasa=Number(presData.tasa||60);
+  const staffUSD=Number(presData.staff_weekly||900);
+  const grpUSD=Number(presData['g_'+new Date().getFullYear()+'_'+presMonth]||0);
+  const budgetUSD=staffUSD*4+grpUSD;
+  const budgetRD=budgetUSD*tasa;
+  const ramBudgetRD=Number(semInfo.ramBudget||0);
+
+  const {totalRD:listaRD}=calcListaTotal();
+
+  // Also count prices*used from weekData
+  let usedRD=0;
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
+    const pr=Number(precios[p.id]||0);
+    const used=totalUsed(p.id);
+    if(pr>0&&used>0)usedRD+=pr*used;
+  }));
+
+  const totalGastoRD=Math.max(listaRD,usedRD);
+  const remRD=budgetRD-totalGastoRD;
+  const pct=budgetRD>0?Math.min(100,Math.round(totalGastoRD/budgetRD*100)):0;
+  const bc=pct<70?'#16a34a':pct<90?'#d97706':'#dc2626';
+  const isJ=role==='jeidi';
+
+  let html=`
+  <div class="bcard">
+    <div class="btit">📅 Mes</div>
+    <div class="mtabs">${MESES.map((m,i)=>`<button class="mtab${i===presMonth?' on':''}" onclick="selPresM(${i})">${m}</button>`).join('')}</div>
+  </div>
+  <div class="bcard">
+    <div class="btit">💰 ${MESES[presMonth]} — Resumen general</div>
+    <div class="bsub">Tasa: 1 USD = ${tasa} RD$ · Staff ${fmtUSD(staffUSD)}/sem × 4 + Grupos</div>
+    <div style="text-align:center;margin:8px 0">
+      <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase">Gastado / Lista</div>
+      <div style="font-size:26px;font-weight:800;color:${bc}">${fmtRD(totalGastoRD)}</div>
+      <div style="font-size:11px;color:#9ca3af">${fmtUSD(totalGastoRD/tasa)}</div>
+    </div>
+    <div class="bbar"><div class="bbarf" style="width:${pct}%;background:${bc}"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;margin-top:2px"><span>RD$0</span><span>${fmtRD(budgetRD)}</span></div>
+    <div class="bgrid">
+      <div class="bst"><div class="bstn" style="color:#0d4db5">${fmtRD(budgetRD)}</div><div style="font-size:10px;color:#9ca3af">${fmtUSD(budgetUSD)}</div><div class="bstl">Presupuesto</div></div>
+      <div class="bst"><div class="bstn" style="color:${bc}">${fmtRD(totalGastoRD)}</div><div style="font-size:10px;color:#9ca3af">${fmtUSD(totalGastoRD/tasa)}</div><div class="bstl">Gastado</div></div>
+      <div class="bst"><div class="bstn" style="color:${remRD>=0?'#16a34a':'#dc2626'}">${fmtRD(Math.abs(remRD))}</div><div style="font-size:10px;color:#9ca3af">${fmtUSD(Math.abs(remRD/tasa))}</div><div class="bstl">${remRD>=0?'Sobrante':'Faltante'}</div></div>
+      <div class="bst"><div class="bstn" style="color:#6b7280">${pct}%</div><div style="font-size:10px;color:#9ca3af">&nbsp;</div><div class="bstl">Ejecutado</div></div>
+    </div>
+  </div>`;
+
+  if(isJ){
+    html+=`<div class="bcard">
+      <div class="btit">✏️ Editar presupuesto</div>
+      <div class="bsub">En dólares — se convierte a pesos con la tasa</div>
+      <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">💱 Tasa (1 USD = ? RD$)</label>
+      <input class="binp" type="number" id="ptasa" value="${tasa}" placeholder="60" step="0.5">
+      <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👔 Staff semanal (USD)</label>
+      <input class="binp" type="number" id="pstaff" value="${staffUSD}" placeholder="900">
+      <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👥 Grupos ${MESES[presMonth]} — total mes (USD)</label>
+      <input class="binp" type="number" id="pgrp" value="${grpUSD||''}" placeholder="Ej: 25690">
+      <label style="font-size:10px;font-weight:700;color:#d97706;display:block;margin-bottom:4px">💰 Presupuesto para Ramona esta semana (RD$)</label>
+      <input class="binp" type="number" id="pram" value="${ramBudgetRD||''}" placeholder="Ej: 50000">
+      <button class="bbtn" onclick="savePresupuesto()">💾 Guardar presupuesto</button>
+    </div>`;
+  }
+
+  // Top costosos from lista
+  const costs=[];
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
+    const item=listaData[p.id]||{};
+    const qty=Number(item.q||0);const pr=Number(item.pr||precios[p.id]||0);
+    if(qty>0&&pr>0)costs.push({n:p.n,u:item.u||p.u,qty,pr,cost:qty*pr});
+  }));
+  costs.sort((a,b)=>b.cost-a.cost);
+  if(costs.length>0){
+    html+=`<div class="bcard"><div class="btit">📊 Productos más costosos (lista)</div>`;
+    costs.slice(0,10).forEach(p=>{
+      const pct2=totalGastoRD>0?Math.round(p.cost/totalGastoRD*100):0;
+      html+=`<div class="prow"><div class="prn">${p.n}<br><span style="font-size:9px;color:#9ca3af">${p.qty} ${p.u} × ${fmtRD(p.pr)} = <strong>${fmtRD(p.cost)}</strong> · ${pct2}%</span></div></div>`;
+    });
+    html+='</div>';
+  }
+
+  if(isJ){
+    html+=`<div class="bcard"><div class="btit">🏷 Precio por producto (RD$)</div>
+      <div class="bsub">Aquí puedes ver y editar precios. Se actualizan automáticamente desde la lista de compras.</div>
+      <div class="srch" style="padding:0;margin-bottom:7px"><input type="search" id="srchPr" placeholder="🔍 Buscar..." oninput="filPr()" style="width:100%;padding:6px 12px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:12px;outline:none"></div>
+      <div id="prList">`;
+    for(const cat of ALL_CATS){
+      html+=`<div class="cat">${cat.cat}</div>`;
+      for(const p of cat.items){
+        const pv=precios[p.id]||'';
+        html+=`<div class="prow" data-n="${p.n.toLowerCase()}">
+          <div class="prn">${p.n}<br><span style="font-size:9px;color:#9ca3af">${p.u}</span></div>
+          <span style="font-size:10px;color:#6b7280;white-space:nowrap">RD$&nbsp;</span>
+          <input class="pri-inp${pv?' hp':''}" type="number" min="0" step="1" placeholder="0" value="${pv}" data-id="${p.id}" onchange="onPrEdit(this)" style="width:72px;padding:4px 5px;border:1.5px solid;border-color:${pv?'#1a6ef5':'#e5e7eb'};border-radius:6px;font-size:12px;text-align:right;outline:none;background:${pv?'#e8f0fe':'white'}">
+        </div>`;
+      }
+    }
+    html+='</div></div>';
+    html+=`<button class="gbtn" onclick="guardarSemana()">💾 Guardar semana en historial</button>`;
+  }
+
+  el.innerHTML=html;
+}
+
+function selPresM(i){presMonth=i;renderPresupuesto();}
+async function savePresupuesto(){
+  const tasa=document.getElementById('ptasa').value;
+  const staff=document.getElementById('pstaff').value;
+  const grp=document.getElementById('pgrp').value;
+  const ram=document.getElementById('pram').value;
+  const key='g_'+new Date().getFullYear()+'_'+presMonth;
+  presData.tasa=Number(tasa);presData.staff_weekly=Number(staff);presData[key]=Number(grp);
+  semInfo.ramBudget=Number(ram)||0;
+  await save('/presupuesto',presData);
+  await save('/semanaInfo/'+wk()+'/ramBudget',Number(ram)||null);
+  setSyncBar('✓ Presupuesto guardado','sok');
+  renderPresupuesto();
+}
+async function onPrEdit(el){
+  const id=el.dataset.id;const v=el.value;
+  if(v===''){delete precios[id];el.classList.remove('hp');}else{precios[id]=Number(v);el.classList.add('hp');}
+  el.style.background=v?'#e8f0fe':'white';
+  el.style.borderColor=v?'#1a6ef5':'#e5e7eb';
+  await save('/precios/'+id,v===''?null:Number(v));
+  renderPresupuesto();
+}
+function filPr(){
+  const q=(document.getElementById('srchPr')?.value||'').toLowerCase();
+  document.querySelectorAll('#prList .prow').forEach(r=>{r.style.display=(r.dataset.n||'').includes(q)?'':'none';});
+  document.querySelectorAll('#prList .cat').forEach(cat=>{
+    let vis=false,el=cat.nextElementSibling;
+    while(el&&!el.classList.contains('cat')){if(el.style.display!=='none')vis=true;el=el.nextElementSibling;}
+    cat.style.display=vis?'':'none';
+  });
+}
+
+// ── HISTORIAL ─────────────────────────────────────────────
+async function guardarSemana(){
+  const end=new Date(weekStart);end.setDate(end.getDate()+6);
+  const fmt=dt=>dt.toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'});
+  const semLabel=semInfo.semName||fmt(weekStart)+' — '+fmt(end);
+  const {totalRD}=calcListaTotal();
+  const tasa=Number(presData.tasa||60);
+  const semLabel2=semInfo.semName||fmt(weekStart)+' — '+fmt(end);
+  const snap={
+    semana:semLabel2,
+    fecha:new Date().toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    totalGastoRD:totalRD,totalGastoUSD:totalRD/tasa,tasa,
+    resumen:{}
+  };
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
+    const stock=Number(weekData[sk(p.id)]||0);const used=totalUsed(p.id);
+    const item=listaData[p.id]||{};
+    const qty=Number(item.q||0);const pr=Number(item.pr||precios[p.id]||0);
+    if(stock>0||used>0||qty>0)
+      snap.resumen[p.id]={n:p.n,u:p.u,stock,usado:used,quedo:Math.max(0,stock-used),comprado:qty,precio:pr,costo:qty*pr};
+  }));
+  await DB.push('/historial',snap);
+  alert('✅ Semana guardada en el historial correctamente.');
+}
+
+async function renderHistorial(){
+  const el=document.getElementById('histWrap');
+  el.innerHTML='<div class="empty"><div class="ei">⏳</div><div class="et">Cargando...</div></div>';
+  try{
+    const hist=await DB.get('/historial');
+    // Always show action buttons
+    let topBtns='<button class="dlbtn" onclick="downloadReporteSemana()" style="background:#0d4db5">📄 Descargar reporte semana actual</button>';
+    if(hist){
+      topBtns+='<button class="dlbtn" onclick="downloadHistorial()">⬇️ Descargar historial completo (CSV)</button>';
+      topBtns+='<button onclick="clearWeekData()" style="display:block;width:calc(100% - 16px);margin:0 8px 8px;padding:10px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑 Borrar datos de semana actual</button>';
+    }
+    if(!hist){el.innerHTML=topBtns+'<div class="empty"><div class="ei">🗂</div><div class="et">Sin historial guardado aún</div><div class="es">Usa "Descargar reporte" para exportar esta semana</div></div>';return;}
+    const entries=Object.entries(hist).reverse();
+    let html=`<button class="dlbtn" onclick="downloadHistorial()">⬇️ Descargar historial completo</button>
+    <button onclick="clearWeekData()" style="display:block;width:calc(100% - 16px);margin:0 8px 8px;padding:10px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑 Borrar datos de semana actual</button>`;
+    for(const [key,e] of entries){
+      let items='',nU=0,nA=0;
+      for(const v of Object.values(e.resumen||{})){
+        if(v.usado>0||v.comprado>0){
+          items+=`<div class="hi">
+            <span>${v.n}</span>
+            <span style="color:#6b7280;font-size:10px">
+              ${v.stock>0?'Stock: '+v.stock+' · ':''}
+              ${v.usado>0?'Usado: '+v.usado+' · ':''}
+              ${v.quedo>0?'Quedó: '+v.quedo:v.usado>0?'<span style=color:#dc2626>Agotado</span>':''}
+              ${v.comprado>0?'· Comprado: '+v.comprado+' '+v.u:''}
+              ${v.costo>0?'· '+fmtRD(v.costo):''}
+            </span>
+          </div>`;
+          nU++;if(v.quedo<=0&&v.usado>0)nA++;
+        }
+      }
+      const gastoTxt=e.totalGastoRD>0?` · Gasto: ${fmtRD(e.totalGastoRD)} (${fmtUSD(e.totalGastoUSD||0)})`:'';
+      html+=`<div class="hcard">
+        <div class="htit">📅 ${e.semana}</div>
+        <div class="hsu">Guardado: ${e.fecha}${gastoTxt}${nA>0?' · ⚠ '+nA+' agotados':''}</div>
+        ${items||'<div style="font-size:11px;color:#9ca3af">Sin movimientos</div>'}
+      </div>`;
+    }
+    el.innerHTML=html;
+  }catch(e){el.innerHTML='<div class="empty"><div class="ei">⚠️</div><div class="et">Error al cargar</div></div>';}
+}
+
+async function clearWeekData(){
+  if(!confirm('¿Borrar TODOS los datos de esta semana? Esto no se puede deshacer.')) return;
+  await DB.set('/semanas/'+wk(), null);
+  await DB.set('/lista/'+wk(), null);
+  await DB.set('/semanaInfo/'+wk(), null);
+  weekData={};listaData={};semInfo={};
+  setSyncBar('✓ Semana borrada','sok');
+  refreshView();
+  alert('Datos de la semana borrados correctamente.');
+}
+function downloadReporteSemana(){
+  const end=new Date(weekStart);end.setDate(end.getDate()+6);
+  const fmt=dt=>dt.toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'});
+  const fmtNum=n=>Number(n||0).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const tasa=Number(presData.tasa||60);
+  const staffUSD=Number(presData.staff_weekly||900);
+  const grpUSD=Number(presData['g_'+new Date().getFullYear()+'_'+presMonth]||0);
+  const budgetUSD=staffUSD*4+grpUSD;
+  const budgetRD=budgetUSD*tasa;
+  const {totalRD}=calcListaTotal();
+  const remRD=budgetRD-totalRD;
+
+  const semName=semInfo.semName||'';
+  const semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50);
+  const ramBudget=Number(semInfo.ramBudget||0);
+
+  let html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Reporte Semana ${semLabel}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:20px;color:#1a1a1a;font-size:13px}
+    h1{color:#0d4db5;font-size:20px;margin-bottom:4px}
+    h2{color:#0d4db5;font-size:15px;margin:20px 0 8px;border-bottom:2px solid #e8f0fe;padding-bottom:4px}
+    h3{color:#374151;font-size:13px;margin:12px 0 6px}
+    .header{background:#0d4db5;color:white;padding:16px 20px;border-radius:8px;margin-bottom:20px}
+    .header h1{color:white;margin:0 0 4px}
+    .header p{margin:2px 0;opacity:0.85;font-size:12px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+    .stat{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px;text-align:center}
+    .stat-n{font-size:20px;font-weight:800;color:#0d4db5}
+    .stat-l{font-size:10px;color:#6b7280;text-transform:uppercase;margin-top:3px}
+    .budget{background:${remRD>=0?'#f0fdf4':'#fee2e2'};border:1px solid ${remRD>=0?'#86efac':'#fca5a5'};border-radius:8px;padding:14px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
+    th{background:#0d4db5;color:white;padding:7px 10px;text-align:left;font-size:11px}
+    td{padding:6px 10px;border-bottom:1px solid #f3f4f6}
+    tr:nth-child(even){background:#f8f9fa}
+    .meals-table th{background:#374151}
+    .cat-row{background:#e8f0fe!important;font-weight:700;color:#0d4db5}
+    .agotado{color:#dc2626;font-weight:700}
+    .ok{color:#16a34a;font-weight:700}
+    .comprado{text-decoration:line-through;opacity:0.5}
+    @media print{body{margin:0}.no-print{display:none}}
+  </style></head><body>
+  <div class="header">
+    <h1>🍽 Reporte Semanal — Mission of Hope</h1>
+    <p>Semana: <strong>${semLabel}</strong></p>
+    <p>Generado: ${new Date().toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
+    <p>Tasa de cambio: 1 USD = ${tasa} RD$</p>
+  </div>
+
+  <h2>👥 Personas y comidas</h2>
+  <div class="stats">
+    <div class="stat"><div class="stat-n">${semA}</div><div class="stat-l">${semInfo.lblA||'Semana A'}</div></div>
+    <div class="stat"><div class="stat-n">${semB}</div><div class="stat-l">${semInfo.lblB||'Semana B'}</div></div>
+    <div class="stat"><div class="stat-n">${staff}</div><div class="stat-l">Staff + Internos</div></div>
+    <div class="stat"><div class="stat-n">${semA+semB+staff}</div><div class="stat-l">Total personas</div></div>
+  </div>
+  <table class="meals-table">
+    <tr><th>Comida</th>${DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join('')}<th>Total semana</th></tr>
+    ${MEALS.map((m,mi)=>{
+      let rowTotal=0;
+      const cells=DAYS.map((d,di)=>{const v=Number(semInfo['meal_'+mi+'_'+di]||0);rowTotal+=v;return `<td style="text-align:center">${v||'—'}</td>`;}).join('');
+      return `<tr><td><strong>${m}</strong></td>${cells}<td style="text-align:center;font-weight:700">${rowTotal||'—'}</td></tr>`;
+    }).join('')}
+  </table>
+
+  <h2>💰 Presupuesto</h2>
+  <div class="budget">
+    <table style="margin:0">
+      <tr><td><strong>Presupuesto total</strong></td><td><strong>RD$ ${fmtNum(budgetRD)}</strong></td><td style="color:#6b7280">$ ${fmtNum(budgetUSD)}</td></tr>
+      <tr><td>Staff (${fmtNum(staffUSD*tasa)} RD$/sem × 4)</td><td>RD$ ${fmtNum(staffUSD*4*tasa)}</td><td style="color:#6b7280">$ ${fmtNum(staffUSD*4)}</td></tr>
+      <tr><td>Grupos del mes</td><td>RD$ ${fmtNum(grpUSD*tasa)}</td><td style="color:#6b7280">$ ${fmtNum(grpUSD)}</td></tr>
+      <tr><td>Presupuesto Ramona esta semana</td><td>RD$ ${fmtNum(ramBudget)}</td><td></td></tr>
+      <tr style="background:${remRD>=0?'#f0fdf4':'#fee2e2'}"><td><strong>${remRD>=0?'✅ Sobrante':'❌ Faltante'}</strong></td><td><strong style="color:${remRD>=0?'#16a34a':'#dc2626'}">RD$ ${fmtNum(Math.abs(remRD))}</strong></td><td style="color:#6b7280">$ ${fmtNum(Math.abs(remRD/tasa))}</td></tr>
+      <tr><td><strong>Total compras (lista)</strong></td><td><strong>RD$ ${fmtNum(totalRD)}</strong></td><td style="color:#6b7280">$ ${fmtNum(totalRD/tasa)}</td></tr>
+    </table>
+  </div>
+
+  <h2>🛒 Lista de compras</h2>`;
+
+  // Products bought (in lista)
+  const tiendaProds={};
+  TIENDAS.forEach(t=>{tiendaProds[t]=[];});
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
+    const item=listaData[p.id]||{};
+    const qty=Number(item.q||0);
+    if(qty>0){
+      const t=item.ti||DTIENDA[p.id]||'S';
+      const pr=Number(item.pr||precios[p.id]||0);
+      tiendaProds[t].push({n:p.n,u:item.u||p.u,qty,pr,cost:qty*pr,done:item.c||false});
+    }
+  }));
+
+  TIENDAS.forEach(t=>{
+    if(!tiendaProds[t].length)return;
+    const subtotal=tiendaProds[t].reduce((s,p)=>s+p.cost,0);
+    html+=`<h3>${TLBL[t]}${subtotal>0?' — RD$ '+fmtNum(subtotal):''}</h3>
+    <table><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th><th>Precio RD$</th><th>Subtotal RD$</th><th>Estado</th></tr>`;
+    tiendaProds[t].forEach(p=>{
+      html+=`<tr class="${p.done?'comprado':''}"><td>${p.n}</td><td>${p.qty}</td><td>${p.u}</td><td>${p.pr?'RD$ '+fmtNum(p.pr):'—'}</td><td>${p.cost?'RD$ '+fmtNum(p.cost):'—'}</td><td>${p.done?'✅ Comprado':'⏳ Pendiente'}</td></tr>`;
+    });
+    html+='</table>';
+  });
+
+  html+=`<h2>📦 Inventario — Stock y uso semanal</h2>
+  <table><tr><th>Producto</th><th>Unidad</th><th>Stock inicial</th><th>Total usado</th><th>Quedó</th><th>Estado</th></tr>`;
+
+  ALL_CATS.forEach(cat=>{
+    const withData=cat.items.filter(p=>Number(weekData[sk(p.id)]||0)>0||totalUsed(p.id)>0);
+    if(!withData.length)return;
+    html+=`<tr class="cat-row"><td colspan="6">${cat.cat}</td></tr>`;
+    withData.forEach(p=>{
+      const stock=Number(weekData[sk(p.id)]||0);
+      const used=totalUsed(p.id);
+      const quedo=Math.max(0,stock-used);
+      const estado=stock>0&&used>=stock?'<span class="agotado">Agotado</span>':quedo>0?`<span class="ok">${quedo} disponibles</span>`:'Sin stock';
+      html+=`<tr><td>${p.n}</td><td>${p.u}</td><td>${stock||'—'}</td><td>${used||'—'}</td><td>${quedo||'—'}</td><td>${estado}</td></tr>`;
+    });
+  });
+
+  html+=`</table>
+  <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:20px">Generado por Sistema de Inventario — Mission of Hope Cocina</p>
+  <button onclick="window.print()" class="no-print" style="display:block;margin:10px auto;padding:10px 24px;background:#0d4db5;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">🖨 Imprimir / Guardar PDF</button>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download='Reporte_Semana_MOH_'+wk()+'.html';a.click();
+  URL.revokeObjectURL(url);
+}
+function downloadHistorial(){
+  DB.get('/historial').then(hist=>{
+    if(!hist){alert('Sin historial para descargar');return;}
+    const tasa=Number(presData.tasa||60);
+    let csv='Semana,Fecha guardado,Producto,Unidad,Stock inicial,Usado,Quedó,Comprado,Precio RD$,Costo RD$,Costo USD\n';
+    Object.values(hist).reverse().forEach(e=>{
+      Object.values(e.resumen||{}).forEach(v=>{
+        if(v.usado>0||v.comprado>0){
+          csv+=`"${e.semana}","${e.fecha}","${v.n}","${v.u}",${v.stock||0},${v.usado||0},${v.quedo||0},${v.comprado||0},${v.precio||0},${v.costo||0},${((v.costo||0)/tasa).toFixed(2)}\n`;
+        }
+      });
+    });
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='historial_cocina_MOH.csv';a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+</script>
+</body>
+</html>
