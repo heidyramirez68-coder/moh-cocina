@@ -242,6 +242,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="panel" id="pPresupuesto">
       <div class="scr" id="presWrap" style="height:calc(100vh - 135px);padding:8px"></div>
     </div>
+    <div class="panel" id="pDashboard">
+      <div id="dashWrap" style="max-height:calc(100vh - 135px);overflow-y:auto;padding:8px"></div>
+    </div>
     <div class="panel" id="pHistorial">
       <div id="histWrap" style="max-height:calc(100vh - 135px);overflow-y:auto"></div>
     </div>
@@ -529,6 +532,7 @@ function setupApp(){
   document.getElementById('wkPrev').onclick=()=>changeWeek(-1);
   document.getElementById('wkNext').onclick=()=>changeWeek(1);
   startPolling();
+  loadCustomProducts();
 }
 
 function buildAdmTabs(){
@@ -574,6 +578,7 @@ function changeWeek(dir){
   // Immediately update presupuesto label if on that panel
   var active=document.querySelector('.panel.on');
   if(active&&active.id==='pPresupuesto') renderPresupuesto();
+  if(active&&active.id==='pDashboard') renderDashboard();
 }
 function updateWkLabel(){
   const end=new Date(weekStart);end.setDate(end.getDate()+6);
@@ -786,6 +791,7 @@ function renderLista(){
   html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
   html+='<span style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap">Semana:</span>';
   html+='<input type="text" value="'+semName+'" placeholder="Ej: 19A y 20B" style="flex:1;padding:6px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:700;color:#0d4db5;outline:none" onchange="saveSemName(this.value)">';
+  html+='<button onclick="showAddProduct()" style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Producto</button>';
   html+='</div>';
 
   // Personas
@@ -826,6 +832,21 @@ function renderLista(){
   html+='<span style="font-size:12px;font-weight:700">Lista de compras ('+fmtRD(totalRD)+')</span>';
   html+='<span style="font-size:10px;background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:20px">'+comprados+'/'+conQty+' comprados</span>';
   html+='</div>';
+  html+='<div style="padding:8px;background:#f8f9fa;border-bottom:1px solid #e5e7eb">';
+  html+='<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:5px">⬇️ Descargar lista por tienda</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:5px">';
+  var tcolors={P:'#1e40af',S:'#065f46',C:'#9f1239',M:'#713f12',A:'#6d28d9',CA:'#92400e',MT:'#374151'};
+  var tnames={P:'PriceSmart',S:'Supermercado',C:'Carniceria',M:'Mercadito',A:'Almoloya',CA:'Cafe Monte Alto',MT:'Monte Alto'};
+  for(var bti=0;bti<TIENDAS.length;bti++){
+    var bt=TIENDAS[bti];
+    var bcount=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){
+      var pti=listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:(DTIENDA[p.id]||'S');
+      return pti===bt&&listaData[p.id]&&Number(listaData[p.id].q||0)>0;
+    }).length;
+    if(!bcount) continue;
+    html+='<button data-t="'+bt+'" onclick="downloadListaTienda(this.dataset.t)" style="padding:5px 10px;background:'+tcolors[bt]+';color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">'+tnames[bt]+' ('+bcount+')</button>';
+  }
+  html+='</div></div>';
 
   // Products by tienda
   for(var ti=0;ti<TIENDAS.length;ti++){
@@ -870,7 +891,7 @@ function renderLista(){
         tiOpts+='<option value="'+tv+'"'+(tv===curTi?' selected':'')+'>'+tnames[tv]+'</option>';
       }
       html+='<select class="sel" data-id="'+p.id+'" onchange="onLiTienda(this)" style="font-size:9px;max-width:78px">'+tiOpts+'</select>';
-      html+='<button class="chk'+(done?' on':'')+'" onclick="toggleLi(\''+p.id+'\')">'+( done?'✓':'○')+'</button>';
+      if(role==='jeidi'){html+='<button class="chk'+(done?' on':'')+'" onclick="toggleLi(\''+p.id+'\')">'+( done?'✓':'○')+'</button>';}
       html+='</div>';
     }
   }
@@ -1304,6 +1325,301 @@ function downloadReporteSemana(){
   a.download='Reporte_Semana_MOH_'+wk()+'.html';a.click();
   URL.revokeObjectURL(url);
 }
+function downloadListaTienda(tienda){
+  var tFull={P:'PriceSmart',S:'Supermercado',C:'Carniceria',M:'Mercadito',A:'Almoloya',CA:'Cafe Monte Alto',MT:'Monte Alto'};
+  var tEmoji={P:'🔵',S:'🟢',C:'🔴',M:'🟡',A:'💧',CA:'☕',MT:'🏔'};
+  var semName=semInfo.semName||wk();
+  var tasa=Number(presData.tasa||60);
+  var prods=[];
+  ALL_CATS.forEach(function(cat){
+    cat.items.forEach(function(p){
+      var pti=listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:(DTIENDA[p.id]||'S');
+      if(pti===tienda){
+        var item=listaData[p.id]||{};
+        var qty=Number(item.q||0);
+        if(qty>0){
+          var pr=Number(item.pr||precios[p.id]||0);
+          prods.push({n:p.n,u:item.u||p.u,qty:qty,pr:pr,cost:qty*pr,done:item.c||false,cat:cat.cat});
+        }
+      }
+    });
+  });
+  if(!prods.length){alert('No hay productos con cantidad para '+tFull[tienda]);return;}
+  var total=prods.reduce(function(s,p){return s+p.cost;},0);
+  var pend=prods.filter(function(p){return !p.done;});
+  var comp=prods.filter(function(p){return p.done;});
+
+  var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  html+='<title>Lista '+tFull[tienda]+'</title>';
+  html+='<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f0f2f5;padding:12px}';
+  html+='.hdr{background:#0d4db5;color:white;padding:14px 16px;border-radius:12px;margin-bottom:12px}';
+  html+='.htitle{font-size:18px;font-weight:800;margin-bottom:2px}.hsub{font-size:11px;opacity:0.85}';
+  html+='.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}';
+  html+='.stat{background:white;border-radius:10px;padding:10px;text-align:center;border:0.5px solid #e5e7eb}';
+  html+='.sn{font-size:20px;font-weight:800;color:#0d4db5}.sl{font-size:10px;color:#6b7280;text-transform:uppercase;margin-top:2px}';
+  html+='.cat{background:#e8f0fe;padding:7px 12px;font-size:10px;font-weight:700;color:#0d4db5;text-transform:uppercase;letter-spacing:0.05em;border-radius:6px;margin:8px 0 4px}';
+  html+='.item{display:flex;align-items:center;background:white;border-radius:8px;padding:10px 12px;margin-bottom:4px;gap:10px;border:0.5px solid #e5e7eb}';
+  html+='.item.done{background:#f0fdf4;opacity:0.6}.chk{width:28px;height:28px;border:2px solid #e5e7eb;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;background:white}';
+  html+='.chk.on{background:#16a34a;border-color:#16a34a;color:white}';
+  html+='.iname{flex:1;font-size:13px;font-weight:600}.idet{font-size:11px;color:#6b7280;margin-top:1px}';
+  html+='.icost{font-size:12px;font-weight:700;color:#0d4db5;white-space:nowrap}';
+  html+='.total{background:#0d4db5;color:white;padding:12px 16px;border-radius:10px;margin-top:12px;display:flex;justify-content:space-between;align-items:center}';
+  html+='@media print{.no-print{display:none}}</style></head><body>';
+
+  html+='<div class="hdr"><div class="htitle">'+tEmoji[tienda]+' '+tFull[tienda]+'</div>';
+  html+='<div class="hsub">Semana: '+semName+' · Generado: '+new Date().toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</div></div>';
+
+  html+='<div class="stats">';
+  html+='<div class="stat"><div class="sn">'+prods.length+'</div><div class="sl">Productos</div></div>';
+  html+='<div class="stat"><div class="sn">'+pend.length+'</div><div class="sl">Pendientes</div></div>';
+  html+='<div class="stat"><div class="sn">'+comp.length+'</div><div class="sl">Comprados</div></div>';
+  html+='</div>';
+
+  // Group by category
+  var cats={};
+  prods.forEach(function(p){if(!cats[p.cat])cats[p.cat]=[];cats[p.cat].push(p);});
+
+  Object.keys(cats).forEach(function(cat){
+    html+='<div class="cat">'+cat+'</div>';
+    cats[cat].forEach(function(p){
+      html+='<div class="item'+(p.done?' done':'')+'" style="cursor:pointer" onclick="var c=this.querySelector(\'.chk\');c.classList.toggle(\'on\');this.classList.toggle(\'done\')">';
+      html+='<div class="chk'+(p.done?' on':'')+'">'+(p.done?'✓':'')+'</div>';
+      html+='<div style="flex:1"><div class="iname"'+(p.done?' style="text-decoration:line-through"':'')+'>'+p.n+'</div>';
+      html+='<div class="idet">'+p.qty+' '+p.u+(p.pr?(' · RD$ '+p.pr.toLocaleString('es-DO')):'')+'</div></div>';
+      html+='<div class="icost">'+(p.cost>0?fmtRD(p.cost):'')+'</div>';
+      html+='</div>';
+    });
+  });
+
+  if(total>0){
+    html+='<div class="total"><span style="font-size:14px;font-weight:700">Total estimado</span>';
+    html+='<div style="text-align:right"><div style="font-size:20px;font-weight:800">'+fmtRD(total)+'</div>';
+    html+='<div style="font-size:11px;opacity:0.85">'+fmtUSD(total/tasa)+'</div></div></div>';
+  }
+
+  html+='<button onclick="window.print()" class="no-print" style="display:block;width:100%;margin-top:12px;padding:12px;background:#374151;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨 Imprimir / Guardar PDF</button>';
+  html+='</body></html>';
+
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='Lista_'+tFull[tienda]+'_'+semName.replace(/[^a-zA-Z0-9]/g,'_')+'.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showAddProduct(){
+  var modal=document.getElementById('addProdModal');
+  if(modal){modal.style.display='flex';return;}
+  var m=document.createElement('div');
+  m.id='addProdModal';
+  m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<div style="font-size:16px;font-weight:700;color:#0d4db5">➕ Agregar producto nuevo</div>'
+    +'<button onclick="document.getElementById(\'addProdModal\').style.display=\'none\'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button>'
+    +'</div>'
+    +'<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">NOMBRE DEL PRODUCTO</label>'
+    +'<input id="npNombre" type="text" placeholder="Ej: Aceite de girasol" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px">'
+    +'<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">UNIDAD DE MEDIDA</label>'
+    +'<select id="npUnidad" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px;background:white">'
+    +UNIDADES.map(function(u){return '<option>'+u+'</option>';}).join('')
+    +'</select>'
+    +'<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">CATEGORÍA</label>'
+    +'<select id="npCat" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px;background:white">'
+    +ALL_CATS.map(function(c){return '<option>'+c.cat+'</option>';}).join('')
+    +'</select>'
+    +'<label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">TIENDA</label>'
+    +'<select id="npTienda" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;margin-bottom:16px;background:white">'
+    +'<option value="P">PriceSmart</option><option value="S">Supermercado</option><option value="C">Carnicería</option>'
+    +'<option value="M">Mercadito</option><option value="A">Almoloya</option><option value="CA">Café Monte Alto</option>'
+    +'</select>'
+    +'<button onclick="saveNewProduct()" style="width:100%;padding:12px;background:#16a34a;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">💾 Guardar producto</button>'
+    +'</div>';
+  document.body.appendChild(m);
+}
+
+async function saveNewProduct(){
+  var nombre=document.getElementById('npNombre').value.trim();
+  var unidad=document.getElementById('npUnidad').value;
+  var cat=document.getElementById('npCat').value;
+  var tienda=document.getElementById('npTienda').value;
+  if(!nombre){alert('Escribe el nombre del producto');return;}
+  var id='custom_'+Date.now();
+  var newProd={id:id,n:nombre,u:unidad,t:tienda,custom:true};
+  // Add to ALL_CATS
+  var catObj=ALL_CATS.find(function(c){return c.cat===cat;});
+  if(catObj) catObj.items.push(newProd);
+  DTIENDA[id]=tienda;
+  // Save to Firebase
+  await DB.set('/customProducts/'+id,{n:nombre,u:unidad,t:tienda,cat:cat});
+  document.getElementById('addProdModal').style.display='none';
+  alert('✅ Producto "'+nombre+'" agregado correctamente.');
+  renderLista();
+}
+
+async function loadCustomProducts(){
+  try{
+    var custom=await DB.get('/customProducts');
+    if(!custom)return;
+    Object.entries(custom).forEach(function(entry){
+      var id=entry[0],p=entry[1];
+      var catObj=ALL_CATS.find(function(c){return c.cat===p.cat;});
+      if(catObj&&!catObj.items.find(function(x){return x.id===id;})){
+        catObj.items.push({id:id,n:p.n,u:p.u,t:p.t,custom:true});
+        DTIENDA[id]=p.t;
+      }
+    });
+  }catch(e){}
+}
+
+function showPanelById(id){
+  var tabs=document.querySelectorAll('.tab');
+  tabs.forEach(function(t){
+    if(t.getAttribute('onclick')&&t.getAttribute('onclick').indexOf(id)>-1) t.click();
+  });
+}
+function renderDashboard(){
+  var el=document.getElementById('dashWrap');
+  if(!el)return;
+  var tasa=Number(presData.tasa||60);
+  var staffUSD=Number(presData.staff_weekly||900);
+  var presMonth2=new Date().getMonth();
+  var grpUSD=Number(presData['g_'+new Date().getFullYear()+'_'+presMonth2]||0);
+  var budgetUSD=staffUSD*4+grpUSD;
+  var budgetRD=budgetUSD*tasa;
+  var tot=calcListaTotal();
+  var gastadoRD=tot.totalRD;
+  var sobranteRD=budgetRD-gastadoRD;
+  var pctGasto=budgetRD>0?Math.min(100,Math.round(gastadoRD/budgetRD*100)):0;
+  var bcGasto=pctGasto<70?'#16a34a':pctGasto<90?'#d97706':'#dc2626';
+
+  // Count stock statuses
+  var criticos=[],bajos=[],sinStock=[];
+  ALL_CATS.forEach(function(cat){
+    cat.items.forEach(function(p){
+      var st=getStatus(p.id);
+      if(!st)return;
+      if(st.type==='critico') criticos.push({n:p.n,rem:st.rem,stock:st.stock});
+      else if(st.type==='bajo') bajos.push({n:p.n,rem:st.rem,stock:st.stock});
+    });
+  });
+
+  // Top used products this week
+  var topUsed=[];
+  ALL_CATS.forEach(function(cat){
+    cat.items.forEach(function(p){
+      var used=totalUsed(p.id);
+      if(used>0) topUsed.push({n:p.n,used:used,u:p.u});
+    });
+  });
+  topUsed.sort(function(a,b){return b.used-a.used;});
+
+  // Compras pendientes
+  var pendientes=[];
+  ALL_CATS.forEach(function(cat){
+    cat.items.forEach(function(p){
+      var item=listaData[p.id]||{};
+      if(Number(item.q||0)>0&&!item.c) pendientes.push({n:p.n,qty:item.q,u:item.u||p.u});
+    });
+  });
+
+  var semName=semInfo.semName||wk();
+  var semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff2=Number(semInfo.staff||50);
+
+  var html='';
+
+  // Header
+  html+='<div style="background:#0d4db5;color:white;padding:12px 14px;border-radius:10px;margin-bottom:8px">';
+  html+='<div style="font-size:16px;font-weight:800;margin-bottom:2px">📈 Dashboard Ejecutivo</div>';
+  html+='<div style="font-size:11px;opacity:0.85">Semana '+semName+' · '+new Date().toLocaleDateString('es-DO',{day:'numeric',month:'long'})+'</div>';
+  html+='</div>';
+
+  // Budget overview
+  html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #e5e7eb">';
+  html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:8px">💰 Presupuesto '+MESES[presMonth2]+'</div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">';
+  html+='<div style="background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:#0d4db5">'+fmtRD(budgetRD)+'</div><div style="font-size:9px;color:#6b7280;text-transform:uppercase">Presupuesto</div></div>';
+  html+='<div style="background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:'+bcGasto+'">'+fmtRD(gastadoRD)+'</div><div style="font-size:9px;color:#6b7280;text-transform:uppercase">Gastado</div></div>';
+  html+='<div style="background:'+(sobranteRD>=0?'#f0fdf4':'#fee2e2')+';border-radius:8px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:'+(sobranteRD>=0?'#16a34a':'#dc2626')+'">'+fmtRD(Math.abs(sobranteRD))+'</div><div style="font-size:9px;color:#6b7280;text-transform:uppercase">'+(sobranteRD>=0?'Sobrante':'Faltante')+'</div></div>';
+  html+='<div style="background:#f8f9fa;border-radius:8px;padding:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:#6b7280">'+pctGasto+'%</div><div style="font-size:9px;color:#6b7280;text-transform:uppercase">Ejecutado</div></div>';
+  html+='</div>';
+  html+='<div style="background:#e5e7eb;border-radius:5px;height:8px"><div style="height:8px;border-radius:5px;background:'+bcGasto+';width:'+pctGasto+'%"></div></div>';
+  html+='</div>';
+
+  // Personas semana
+  html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #e5e7eb">';
+  html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:8px">👥 Personas esta semana</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">';
+  html+='<div style="text-align:center;background:#e8f0fe;border-radius:8px;padding:8px"><div style="font-size:18px;font-weight:800;color:#0d4db5">'+semA+'</div><div style="font-size:9px;color:#6b7280">'+(semInfo.lblA||'Sem A')+'</div></div>';
+  html+='<div style="text-align:center;background:#e8f0fe;border-radius:8px;padding:8px"><div style="font-size:18px;font-weight:800;color:#0d4db5">'+semB+'</div><div style="font-size:9px;color:#6b7280">'+(semInfo.lblB||'Sem B')+'</div></div>';
+  html+='<div style="text-align:center;background:#dcfce7;border-radius:8px;padding:8px"><div style="font-size:18px;font-weight:800;color:#16a34a">'+staff2+'</div><div style="font-size:9px;color:#6b7280">Staff</div></div>';
+  html+='<div style="text-align:center;background:#fef3c7;border-radius:8px;padding:8px"><div style="font-size:18px;font-weight:800;color:#d97706">'+(semA+semB+staff2)+'</div><div style="font-size:9px;color:#6b7280">Total</div></div>';
+  html+='</div></div>';
+
+  // Critical stock
+  if(criticos.length>0){
+    html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid #fca5a5">';
+    html+='<div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">🚨 Productos críticos ('+criticos.length+')</div>';
+    criticos.slice(0,8).forEach(function(p){
+      html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f3f4f6;font-size:12px">';
+      html+='<span>'+p.n+'</span><span style="color:#dc2626;font-weight:700">'+(p.rem<0?'Agotado':'Solo '+p.rem+' restantes')+'</span></div>';
+    });
+    html+='</div>';
+  }
+
+  // Low stock
+  if(bajos.length>0){
+    html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid #fcd34d">';
+    html+='<div style="font-size:12px;font-weight:700;color:#d97706;margin-bottom:6px">⚠️ Stock bajo ('+bajos.length+')</div>';
+    bajos.slice(0,6).forEach(function(p){
+      html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f3f4f6;font-size:12px">';
+      html+='<span>'+p.n+'</span><span style="color:#d97706;font-weight:700">'+p.rem+' restantes</span></div>';
+    });
+    html+='</div>';
+  }
+
+  // Pending purchases
+  if(pendientes.length>0){
+    html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #e5e7eb">';
+    html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:6px">🛒 Compras pendientes ('+pendientes.length+')</div>';
+    pendientes.slice(0,8).forEach(function(p){
+      html+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #f3f4f6;font-size:12px">';
+      html+='<span>'+p.n+'</span><span style="color:#6b7280">'+p.qty+' '+p.u+'</span></div>';
+    });
+    if(pendientes.length>8) html+='<div style="font-size:10px;color:#9ca3af;text-align:center;margin-top:4px">...y '+(pendientes.length-8)+' más</div>';
+    html+='</div>';
+  }
+
+  // Top used
+  if(topUsed.length>0){
+    html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #e5e7eb">';
+    html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:6px">📊 Productos más usados esta semana</div>';
+    var maxUsed=topUsed[0].used;
+    topUsed.slice(0,8).forEach(function(p){
+      var pct2=Math.round(p.used/maxUsed*100);
+      html+='<div style="margin-bottom:6px">';
+      html+='<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>'+p.n+'</span><span style="font-weight:700;color:#0d4db5">'+p.used+' '+p.u+'</span></div>';
+      html+='<div style="background:#e5e7eb;border-radius:3px;height:4px"><div style="height:4px;border-radius:3px;background:#1a6ef5;width:'+pct2+'%"></div></div>';
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+
+  // Quick actions
+  html+='<div style="background:white;border-radius:10px;padding:12px;margin-bottom:8px;border:0.5px solid #e5e7eb">';
+  html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:8px">⚡ Acciones rápidas</div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+  html+='<button onclick="showPanelById(\'pLista\')" style="padding:10px;background:#e8f0fe;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#0d4db5">🛒 Ir a Lista</button>';
+  html+='<button onclick="showPanelById(\'pPresupuesto\')" style="padding:10px;background:#e8f0fe;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#0d4db5">💰 Presupuesto</button>';
+  html+='<button onclick="guardarSemana()" style="padding:10px;background:#dcfce7;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#16a34a">💾 Guardar semana</button>';
+  html+='<button onclick="downloadReporteSemana()" style="padding:10px;background:#ede9fe;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#6d28d9">📄 Descargar reporte</button>';
+  html+='</div></div>';
+
+  el.innerHTML=html;
+}
+
 function downloadHistorial(){
   DB.get('/historial').then(hist=>{
     if(!hist){alert('Sin historial para descargar');return;}
