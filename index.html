@@ -571,6 +571,9 @@ function changeWeek(dir){
   presMonth=d.getMonth();
   updateWkLabel();
   startPolling();
+  // Immediately update presupuesto label if on that panel
+  var active=document.querySelector('.panel.on');
+  if(active&&active.id==='pPresupuesto') renderPresupuesto();
 }
 function updateWkLabel(){
   const end=new Date(weekStart);end.setDate(end.getDate()+6);
