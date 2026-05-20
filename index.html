@@ -1070,16 +1070,58 @@ async function onLiPr(el){
   renderPresupuesto();
 }
 async function onLiTienda(el){
-  const id=el.dataset.id;const ti=el.value;
-  const cur=listaData[id]||{};
-  listaData[id]={...cur,ti};
+  var id=el.dataset.id; var ti=el.value;
+  var cur=listaData[id]||{};
+  // Get price for this tienda from precios
+  var prObj=precios[id+'_'+ti]||{};
+  var newPr=prObj.pr||null;
+  listaData[id]={...cur,ti:ti,pr:newPr};
   el.style.background=ti!==DTIENDA[id]?'#fef3c7':'white';
   await save('/lista/'+wk()+'/'+id,listaData[id]);
+  setSyncBar('✓ Tienda y precio actualizados','sok');
+  // Update price display without full re-render
+  var row=el.closest('.li-row');
+  if(row){
+    var prInp=row.querySelector('input[onchange*="onLiPr"]');
+    if(prInp){
+      prInp.value=newPr||'';
+      prInp.style.background=newPr?'#e8f0fe':'#fafafa';
+      prInp.style.borderColor=newPr?'#1a6ef5':'#e5e7eb';
+    }
+  }
 }
 async function toggleLi(id){
-  const cur=listaData[id]||{};
-  listaData[id]={...cur,c:!cur.c};
+  var cur=listaData[id]||{};
+  var wasComprado=cur.c||false;
+  var nowComprado=!wasComprado;
+  listaData[id]={...cur,c:nowComprado};
   await save('/lista/'+wk()+'/'+id,listaData[id]);
+
+  // When marking as purchased, add quantity to stock automatically
+  if(nowComprado && Number(cur.q||0)>0){
+    var qty=Number(cur.q||0);
+    var currentStock=Number(weekData[sk(id)]||0);
+    var newStock=currentStock+qty;
+    weekData[sk(id)]=newStock;
+    // Also update the text stock display
+    var unit=cur.u||'';
+    var newStockTxt=newStock+(unit?' '+unit:'');
+    weekData['sd_'+id]=newStockTxt;
+    await save('/semanas/'+wk()+'/'+sk(id), newStock);
+    await save('/semanas/'+wk()+'/sd_'+id, newStockTxt);
+    setSyncBar('✓ Comprado — stock actualizado a '+newStock+(unit?' '+unit:''),'sok');
+  } else if(!nowComprado && Number(cur.q||0)>0){
+    // When unmarking, subtract from stock
+    var qty2=Number(cur.q||0);
+    var currentStock2=Number(weekData[sk(id)]||0);
+    var newStock2=Math.max(0,currentStock2-qty2);
+    weekData[sk(id)]=newStock2;
+    var unit2=cur.u||'';
+    weekData['sd_'+id]=newStock2+(unit2?' '+unit2:'');
+    await save('/semanas/'+wk()+'/'+sk(id), newStock2||null);
+    await save('/semanas/'+wk()+'/sd_'+id, newStock2+(unit2?' '+unit2:'')||null);
+    setSyncBar('✓ Desmarcado — stock ajustado','sok');
+  }
   renderLista();
 }
 
@@ -1189,7 +1231,7 @@ async function renderPresupuesto(){
     html+='<div class="bsub">Precios por tienda. Se usan automáticamente según donde compres cada producto.</div>';
     // Tienda tabs
     html+='<div style="display:flex;gap:6px;margin-bottom:10px">';
-    var ptabs=[{k:'P',l:'🔵 PriceSmart'},{k:'S',l:'🟢 Supermercado'},{k:'C',l:'🔴 Carnicería'},{k:'M',l:'🟡 Mercadito'},{k:'A',l:'💧 Almoloya'}];
+    var ptabs=[{k:'P',l:'🔵 PriceSmart'},{k:'S',l:'🟢 Supermercado'},{k:'C',l:'🔴 Carnicería'},{k:'M',l:'🟡 Mercadito'},{k:'A',l:'💧 Almoloya'},{k:'CA',l:'☕ Café Monte Alto'}];
     ptabs.forEach(function(pt){
     html+='<button data-t="'+pt.k+'" onclick="setPrTab(this.dataset.t)" class="mtab'+((window._prTab||'P')===pt.k?' on':'')+' style="font-size:10px">'+pt.l+'</button>';
     });
