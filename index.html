@@ -435,6 +435,13 @@ const CATS_COCINA=[
     {id:'c234',n:'234. Papa Selecta',u:'Libras',t:'M'},{id:'c235',n:'235. Cebolla Roja',u:'Libras',t:'M'},
     {id:'c236',n:'236. Coco seco',u:'Unidad',t:'M'},{id:'c237',n:'237. Huevos',u:'30 unidades',t:'M'},
     {id:'c238',n:'238. Guineos verdes',u:'Unidad',t:'M'},{id:'c239',n:'239. Plátanos verdes',u:'Unidad',t:'M'}]},
+  {cat:'🧾 Impuestos (ITBIS)',items:[
+    {id:'itbis_s',n:'ITBIS Supermercado',u:'Factura',t:'S'},
+    {id:'itbis_ca',n:'ITBIS Café Monte Alto',u:'Factura',t:'CA'},
+    {id:'itbis_m',n:'ITBIS Mercadito',u:'Factura',t:'M'},
+    {id:'itbis_c',n:'ITBIS Carnicería',u:'Factura',t:'C'},
+    {id:'itbis_o',n:'ITBIS Otros',u:'Factura',t:'S'}
+  ]},
   {cat:'🍓 Frutas',items:[
     {id:'c240',n:'240. Lechoza',u:'Unidad',t:'M'},{id:'c241',n:'241. Melón',u:'Unidad',t:'M'},
     {id:'c242',n:'242. Piña',u:'Unidad',t:'M'},{id:'c243',n:'243. Sandía',u:'Unidad',t:'M'},
@@ -654,7 +661,13 @@ async function fetchAll(){
       DB.get('/semanas/'+wk()),DB.get('/lista/'+wk()),
       DB.get('/semanaInfo/'+wk()),DB.get('/presupuesto'),DB.get('/precios')
     ]);
-    weekData=wd||{};listaData=li||{};semInfo=si||{};presData=pd||{};precios=px||{};
+    weekData=wd||{};listaData=li||{};semInfo=si||{};presData=pd||{};
+    // Restore ramBudget from semanaInfo (it's saved per week)
+    if(si&&si.ramBudget) semInfo.ramBudget=si.ramBudget;
+    // Merge default prices with saved (saved take priority)
+    precios={};
+    Object.keys(PRECIOS_PS_DEFAULT).forEach(function(k){precios[k]=PRECIOS_PS_DEFAULT[k];});
+    if(px) Object.keys(px).forEach(function(k){precios[k]=px[k];});
     setSyncBar('✓ En vivo — actualizado','sok');
     updateWkLabel();
     refreshView();
@@ -838,16 +851,21 @@ async function onCorr(el){const k=el.dataset.k;const v=el.value;if(v===''){delet
 
 // ── LISTA DE COMPRAS ──────────────────────────────────────
 // Calculate total spent from lista
+var ITBIS_TIENDAS=['S','CA']; // Supermercado y Café Monte Alto cobran 14% ITBIS
+function applyITBIS(pr, tienda){
+  if(ITBIS_TIENDAS.indexOf(tienda)>-1) return Math.round(pr*1.14*100)/100;
+  return pr; // PriceSmart y otros ya incluyen ITBIS
+}
 function calcListaTotal(){
   var tasa=Number(presData.tasa||60);
   var totalRD=0;
   ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){
     var item=listaData[p.id]||{};
     var qty=Number(item.q||0);
-    // Use item price, or tienda-specific price from precios
     var pti=item.ti||DTIENDA[p.id]||'S';
     var prObj=precios[p.id+'_'+pti]||{};
-    var pr=Number(item.pr||prObj.pr||0);
+    var prBase=Number(item.pr||prObj.pr||0);
+    var pr=Number(prBase||0);
     if(qty>0&&pr>0)totalRD+=qty*pr;
   });});
   return {totalRD:totalRD,totalUSD:totalRD/tasa};
@@ -860,7 +878,7 @@ function renderLista(){
   var ramRestante=ramBudgetRD-totalRD;
   var semName=semInfo.semName||'';
   var semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50);
-  var total=semA+semB+staff;
+  var vt0=Number(semInfo.vt||0);var total=semA+semB+staff+vt0;
   var comprados=Object.values(listaData).filter(function(v){return v&&v.c;}).length;
   var conQty=Object.values(listaData).filter(function(v){return v&&v.q>0;}).length;
   var html='<div style="background:white;border-bottom:1px solid #e5e7eb;padding:8px">';
@@ -895,11 +913,14 @@ function renderLista(){
   var lblA=semInfo.lblA||'Semana A';
   var lblB=semInfo.lblB||'Semana B';
   html+='<div style="font-size:12px;font-weight:700;color:#0d4db5;margin-bottom:6px">Personas esta semana</div>';
+  var vt=Number(semInfo.vt||0);
+  var total2=semA+semB+staff+vt;
   html+='<div class="pgrid">';
   html+='<div class="pcard"><input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" value="'+lblA+'" placeholder="Ej: 19A" data-f="lblA" onchange="saveSILabel(this)"><input class="pci" type="number" id="siA" value="'+(semA||0)+'" placeholder="0" onchange="saveSI()"></div>';
   html+='<div class="pcard"><input style="width:100%;border:none;border-bottom:1px solid #e5e7eb;outline:none;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px;padding:0;background:transparent" value="'+lblB+'" placeholder="Ej: 20B" data-f="lblB" onchange="saveSILabel(this)"><input class="pci" type="number" id="siB" value="'+(semB||0)+'" placeholder="0" onchange="saveSI()"></div>';
   html+='<div class="pcard"><div class="pcl">Staff + Internos</div><input class="pci" style="color:#16a34a" type="number" id="siS" value="'+(staff||50)+'" placeholder="50" onchange="saveSI()"></div>';
-  html+='<div class="pcard" style="background:#e8f0fe"><div class="pcl">Total personas</div><div class="pci" style="display:block">'+total+'</div></div>';
+  html+='<div class="pcard" style="background:#fff0f5"><div class="pcl">✈️ Vision Trips</div><input class="pci" style="color:#9d174d" type="number" id="siVT" value="'+(vt||0)+'" placeholder="0" onchange="saveSI()"></div>';
+  html+='<div class="pcard" style="background:#e8f0fe"><div class="pcl">Total personas</div><div class="pci" style="display:block">'+total2+'</div></div>';
   html+='</div>';
 
   // Comidas por dia
@@ -966,11 +987,16 @@ function renderLista(){
       var stock=Number(weekData[sk(p.id)]||0);
       var used=totalUsed(p.id);
       var queda=Math.max(0,stock-used);
-      var subtotal=qty&&pr?Number(qty)*Number(pr):0;
+      var ptiSub=item.ti||DTIENDA[p.id]||'S';
+      var prWithITBIS=applyITBIS(Number(pr)||0, ptiSub);
+      var subtotal=qty&&pr?Number(qty)*prWithITBIS:0;
+      var itbisAmt=pr&&ITBIS_TIENDAS.indexOf(ptiSub)>-1?Math.round((prWithITBIS-Number(pr))*Number(qty)*100)/100:0;
+      var itbisLbl=itbisAmt>0?' <span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px;font-weight:700">+ITBIS: '+fmtRD(itbisAmt)+'</span>':'';
       var stockTxt=queda>0?'<span style="color:#16a34a;font-weight:600">Queda: '+queda+'</span>':stock>0?'<span style="color:#dc2626;font-weight:600">Agotado</span>':'';
       html+='<div class="li-row'+(done?' done':'')+'">';
       html+='<div style="flex:1"><div class="li-name"'+(done?' style="text-decoration:line-through;opacity:0.5"':'')+'>'+p.n+'</div>';
-      html+='<div class="li-det">'+stockTxt+(subtotal>0?' '+fmtRD(subtotal):'')+'</div></div>';
+          var prevC=item.compras||[];var prevTxt=prevC.length>0?' · <span style="color:#16a34a;font-weight:600">'+prevC.length+' viaje'+(prevC.length>1?'s':'')+' anteriores ✓</span>':'';
+          html+='<div class="li-det">'+stockTxt+(subtotal>0?' '+fmtRD(subtotal)+itbisLbl:'')+prevTxt+'</div></div>';
       html+='<input class="qi'+(qty?' hq':'')+'" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="'+qty+'" data-id="'+p.id+'" onchange="onLiQty(this)">';
       // Unit selector
       var unitOpts='';
@@ -980,10 +1006,20 @@ function renderLista(){
       var ptienda=item.ti||DTIENDA[p.id]||'S';
       var prObjLi=precios[p.id+'_'+ptienda]||{};
       var prShow=pr||(prObjLi.pr||'');
+      var ptiShow=item.ti||DTIENDA[p.id]||'S';
+      var hasITBIS=ITBIS_TIENDAS.indexOf(ptiShow)>-1;
+      var prConITBIS2=prShow?Math.round(Number(prShow)*1.14*100)/100:0;
       if(role==='jeidi'){
+        html+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">';
         html+='<input class="qi'+(prShow?' hq':'')+'" type="number" min="0" step="1" inputmode="decimal" placeholder="RD$" value="'+prShow+'" data-id="'+p.id+'" onchange="onLiPr(this)" style="width:65px;background:'+(prShow?'#e8f0fe':'#fafafa')+';border-color:'+(prShow?'#1a6ef5':'#e5e7eb')+'">';
+
+
+        html+='</div>';
       } else {
-        html+='<span style="font-size:11px;color:#6b7280;white-space:nowrap">'+(prShow?fmtRD(Number(prShow)):'')+'</span>';
+        html+='<div style="text-align:right">';
+        html+='<div style="font-size:11px;color:#6b7280;white-space:nowrap">'+(prShow?fmtRD(Number(prShow)):'')+'</div>';
+
+        html+='</div>';
       }
       // Tienda selector
       var tiOpts='';
@@ -992,8 +1028,12 @@ function renderLista(){
         var tnames={P:'PriceSmart',S:'Supermercado',C:'Carniceria',M:'Mercadito',A:'Almoloya',CA:'Cafe Monte Alto',MT:'Monte Alto'};
         tiOpts+='<option value="'+tv+'"'+(tv===curTi?' selected':'')+'>'+tnames[tv]+'</option>';
       }
-      html+='<select class="sel" data-id="'+p.id+'" onchange="onLiTienda(this)" style="font-size:9px;max-width:78px">'+tiOpts+'</select>';
-      if(role==='jeidi'){html+='<button class="chk'+(done?' on':'')+'" onclick="toggleLi(\''+p.id+'\')">'+( done?'✓':'○')+'</button>';}
+      if(role==='jeidi') html+='<select class="sel" data-id="'+p.id+'" onchange="onLiTienda(this)" style="font-size:9px;max-width:78px;background:'+(curTi!==DTIENDA[p.id]?'#fef3c7':'white')+'">'+tiOpts+'</select>';
+      if(role==='jeidi'){
+        var chkCls='chk'+(done?' on':'');
+        html+='<button class="'+chkCls+'" data-id="'+p.id+'" onclick="toggleLi(this.dataset.id)">'+( done?'✓':'○')+'</button>';
+        html+='<button data-id="'+p.id+'" onclick="borrarItem(this.dataset.id)" style="padding:3px 7px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;cursor:pointer;color:#dc2626;margin-left:2px">🗑</button>';
+      }
       html+='</div>';
     }
   }
@@ -1090,6 +1130,41 @@ async function onLiTienda(el){
     }
   }
 }
+async function borrarItem(id){
+  if(!confirm('¿Borrar este producto de la lista?')) return;
+  delete listaData[id];
+  await save('/lista/'+wk()+'/'+id, null);
+  setSyncBar('✓ Producto eliminado de la lista','sok');
+  renderLista();
+}
+async function agregarMas(id){
+  var cur=listaData[id]||{};
+  // Keep the purchased record but reset quantity for new purchase
+  // Save previous purchase amount
+  var prevQty=Number(cur.q||0);
+  var prevCompras=cur.compras||[];
+  prevCompras.push({q:prevQty,u:cur.u||'',t:cur.ti||DTIENDA[id]||'S',fecha:new Date().toLocaleDateString('es-DO')});
+  listaData[id]={...cur,q:'',c:false,compras:prevCompras};
+  await save('/lista/'+wk()+'/'+id,listaData[id]);
+  setSyncBar('✓ Listo para agregar más cantidad','sok');
+  renderLista();
+}
+function addITBIS(sel){
+  var pct=parseFloat(sel.value);
+  if(!pct){sel.value='';return;}
+  var row=sel.closest('.li-row');
+  var inp=row?row.querySelector('input[data-id="'+id+'"][onchange*="onLiPr"]'):null;
+  if(!inp)return;
+  var base=parseFloat(inp.value)||0;
+  if(!base){sel.value='';return;}
+  var withTax=Math.round(base*(1+pct/100)*100)/100;
+  inp.value=withTax;
+  inp.style.background='#e8f0fe';
+  inp.style.borderColor='#1a6ef5';
+  sel.value='';
+  inp.dispatchEvent(new Event('change'));
+}
+
 async function toggleLi(id){
   var cur=listaData[id]||{};
   var wasComprado=cur.c||false;
@@ -1228,10 +1303,10 @@ async function renderPresupuesto(){
 
   if(isJ){
     html+='<div class="bcard"><div class="btit">🏷 Precio por producto (RD$)</div>';
-    html+='<div class="bsub">Precios por tienda. Se usan automáticamente según donde compres cada producto.</div>';
+    html+='<div class="bsub">Precios por tienda. Se usan automáticamente según donde compres cada producto. Para Supermercado, Café Monte Alto y Monte Alto se agrega 14% ITBIS automáticamente.</div>';
     // Tienda tabs
     html+='<div style="display:flex;gap:6px;margin-bottom:10px">';
-    var ptabs=[{k:'P',l:'🔵 PriceSmart'},{k:'S',l:'🟢 Supermercado'},{k:'C',l:'🔴 Carnicería'},{k:'M',l:'🟡 Mercadito'},{k:'A',l:'💧 Almoloya'},{k:'CA',l:'☕ Café Monte Alto'}];
+    var ptabs=[{k:'P',l:'🔵 PriceSmart'},{k:'S',l:'🟢 Supermercado'},{k:'C',l:'🔴 Carnicería'},{k:'M',l:'🟡 Mercadito'},{k:'A',l:'💧 Almoloya'},{k:'CA',l:'☕ Café Monte Alto'},{k:'ITBIS',l:'🧾 ITBIS'}];
     ptabs.forEach(function(pt){
     html+='<button data-t="'+pt.k+'" onclick="setPrTab(this.dataset.t)" class="mtab'+((window._prTab||'P')===pt.k?' on':'')+' style="font-size:10px">'+pt.l+'</button>';
     });
@@ -1273,14 +1348,15 @@ async function renderPresupuesto(){
 
 function selPresM(i){presMonth=i;renderPresupuesto();}
 async function savePresupuesto(){
-  const tasa=document.getElementById('ptasa').value;
-  const staff=document.getElementById('pstaff').value;
-  const grp=document.getElementById('pgrp').value;
-  const ram=document.getElementById('pram').value;
-  const key='g_'+new Date().getFullYear()+'_'+presMonth;
+  var tasa=document.getElementById('ptasa').value;
+  var staff=document.getElementById('pstaff').value;
+  var grp=document.getElementById('pgrp').value;
+  var ram=document.getElementById('pram').value;
+  var key='g_'+new Date().getFullYear()+'_'+presMonth;
   presData.tasa=Number(tasa);presData.staff_weekly=Number(staff);presData[key]=Number(grp);
   semInfo.ramBudget=Number(ram)||0;
   await save('/presupuesto',presData);
+  // Save ramBudget per week so it doesn't disappear when changing weeks
   await save('/semanaInfo/'+wk()+'/ramBudget',Number(ram)||null);
   setSyncBar('✓ Presupuesto guardado','sok');
   renderPresupuesto();
@@ -1288,20 +1364,25 @@ async function savePresupuesto(){
 async function onPrEdit(el){
   var id=el.dataset.id;var t=el.dataset.t||'P';var v=el.value;
   var key=id+'_'+t;
+  var prBase=v===''?null:Number(v);
+  // Auto-apply ITBIS for supermercado/cafe
+  var prFinal=prBase&&ITBIS_TIENDAS.indexOf(t)>-1?Math.round(prBase*1.14*100)/100:prBase;
   if(!precios[key])precios[key]={};
-  if(v===''){delete precios[key].pr;}else{precios[key].pr=Number(v);}
+  if(v===''){delete precios[key].pr;}else{precios[key].pr=prFinal;}
   await save('/precios/'+key,precios[key]);
+  // Show final price in input
+  if(prFinal&&prFinal!==prBase){el.value=prFinal;}
   el.style.background=v?'#e8f0fe':'white';
   el.style.borderColor=v?'#1a6ef5':'#e5e7eb';
-  // Update lista if product is assigned to this tienda
   if(listaData[id]){
     var pti=listaData[id].ti||DTIENDA[id]||'S';
     if(pti===t){
-      listaData[id]={...listaData[id],pr:v===''?null:Number(v)};
+      listaData[id]={...listaData[id],pr:prFinal};
       await save('/lista/'+wk()+'/'+id,listaData[id]);
     }
   }
-  setSyncBar('✓ Precio guardado','sok');
+  setSyncBar('✓ Precio guardado'+(prFinal!==prBase?' (ITBIS incluido)':''),'sok');
+  renderPresupuesto();
 }
 var _prTab='P';
 function setPrTab(t){
@@ -1724,6 +1805,143 @@ async function saveNewProduct(){
   renderLista();
 }
 
+
+var PRECIOS_PS_DEFAULT={
+  // ── PRICESMART ──────────────────────────────────────────
+  'c145_P':{pr:685,u:'Grande'},        // Pancake Mix Krusteaz 10lb
+  'c176_P':{pr:1290,u:'Unidad'},       // Granola Kirkland Soft&Chewy 64ct
+  'c077_P':{pr:345,u:'Unidad'},        // Aderezo Caesar
+  'c076_P':{pr:355,u:'Unidad'},        // Aderezo Ranch
+  'c078_P':{pr:325,u:'Unidad'},        // Aderezo Italiano
+  'c195_P':{pr:960,u:'Unidad'},        // Cremora para cafe 2pk
+  'c070_P':{pr:695,u:'Unidad'},        // BBQ Sauce KRAFT
+  'c056_P':{pr:920,u:'Unidad'},        // Queso Mozzarella rallado 5lb
+  'c051_P':{pr:295,u:'Unidad'},        // Margarina Dorina
+  'c024_P':{pr:740,u:'Unidad'},        // Ambientador Glade
+  'c042_P':{pr:880,u:'Caja'},          // Leche Listamilk 12/1L
+  'c127_P':{pr:185,u:'Unidad'},        // Harina Blanquita 5lb
+  'c053_P':{pr:840,u:'Unidad'},        // Queso crema Philadelphia 6pk
+  'c210_P':{pr:264,u:'Libras'},        // Fajita de Res por lb
+  'c208_P':{pr:180,u:'Libras'},        // Carne molida por lb
+  'c128_P':{pr:190,u:'Paquete'},       // Espagueti Princesa 6pk
+  'c035_P':{pr:2890,u:'Unidad'},       // Papel aluminio 12x1000
+  'c212_P':{pr:360,u:'Paquete'},       // Hot dog Gwaltney 3lb
+  'c057_P':{pr:1095,u:'Unidad'},       // Bacon tocineta 3lb
+  'c125_P':{pr:505,u:'Unidad'},        // Maiz dulce La Famosa 6pk
+  'c034_P':{pr:1480,u:'Paquete 4u'},   // Kleenex papel toalla 3pk
+  'c047_P':{pr:495,u:'Paquete'},       // Leche de coco Goya 4pk
+  'c003_P':{pr:665,u:'Unidad'},        // Fabuloso 5lt 2pk
+  'c123_P':{pr:670,u:'Unidad'},        // Gandules La Famosa 112oz
+  'c182_P':{pr:2940,u:'Caja'},         // Papas fritas Flavorlast 30lb
+  'c109_P':{pr:530,u:'Unidad'},        // Caldo Dona Gallina
+  'c137_P':{pr:145,u:'8und'},          // Pan hot dog Lumijor 12und
+  'c033_P':{pr:230,u:'Unidad'},        // Servilletas Niveo 1000und
+  'c171_P':{pr:345,u:'Unidad'},        // Cereales Fruit OOOs
+  'c211_P':{pr:210,u:'Libras'},        // Fajita de cerdo por lb
+  'c082_P':{pr:495,u:'Galón'},         // Agrio naranja Goya 128oz
+  'c032_P':{pr:690,u:'Paquete 24u'},   // Papel bano MS 24ct
+  'c067_P':{pr:865,u:'Unidad'},        // Salsa tomate Prego 3pk
+  'c046_P':{pr:1025,u:'Caja'},         // Leche almendra Silk 6pk
+  'c036_P':{pr:1320,u:'Unidad'},       // Plastic food wrap 12x2000
+  'c002_P':{pr:830,u:'Unidad'},        // Toallitas desinfectantes 4pk
+  'c166_P':{pr:635,u:'Unidad'},        // Mermelada fresa Smuckers 2/32oz
+  'c050_P':{pr:1775,u:'Unidad'},       // Mantequilla Sosua barra 20pk
+  'c214_P':{pr:2125,u:'Unidad'},       // Alitas de pollo 20lb
+  'c162_P':{pr:375,u:'Unidad'},        // Mantequilla mani Creamy
+  'c163_P':{pr:375,u:'Unidad'},        // Mantequilla mani Crunchy
+  'c164_P':{pr:575,u:'Unidad'},        // Nutella 1kg
+  'c055_P':{pr:870,u:'Unidad'},        // Queso Mozzarella barra 5lb
+  'c064_P':{pr:310,u:'Unidad'},        // Azucar Crema 10lb
+  'c065_P':{pr:340,u:'Unidad'},        // Azucar Refino 10lb
+  'c001_P':{pr:415,u:'Caja'},          // Cloro Acel 4/128oz
+  'c181_P':{pr:345,u:'Paquete'},       // Papitas surtidas Frito Lays 14pk
+  'c089_P':{pr:1355,u:'Galón'},        // Salsa picante alitas 1 gal
+  'c007_P':{pr:1190,u:'Paquete'},      // Fundas basura negras 55gal
+  'c006_P':{pr:1550,u:'Paquete'},      // Fundas basura blancas 13gal
+  'c005_P':{pr:1030,u:'Paquete'},      // Fundas basura pequenas 4gal
+  'c016_P':{pr:520,u:'Unidad'},        // Escoba Kika 3pk
+  'c017_P':{pr:555,u:'Unidad'},        // Trapeador Kika 3pk
+  'c026_P':{pr:995,u:'Unidad'},        // Toallas Amarillas 36pk
+  'c200_P':{pr:430,u:'Paquete'},       // Refrescos surtidos 6/2L
+  'c054_P':{pr:448,u:'Unidad'},        // Queso Mexicano/Taco 80oz
+  'c044_P':{pr:325,u:'Caja'},          // Crema de leche Elle Vire
+  'c058_P':{pr:1195,u:'Unidad'},       // Jamon Picnic 7lb
+  'c091_P':{pr:380,u:'Unidad'},        // Aceite aerosol Pam 170g
+  'c168_P':{pr:452,u:'Unidad'},        // Miel de abeja La Preferida 32oz
+  'c160_P':{pr:105,u:'Unidad'},        // Baking Soda Arm Hammer
+  'c142_P':{pr:380,u:'Unidad'},        // Brownie Mix Betty Crocker
+  'c143_P':{pr:391,u:'Unidad'},        // Frosting Betty Crocker
+  'c151_P':{pr:193,u:'Unidad'},        // Pina rebanada Goya 20oz
+  'c074_P':{pr:469,u:'Unidad'},        // Aderezo Onion Vinagreta
+  'c052_P':{pr:872,u:'Unidad'},        // Queso Parmesano Kraft 16oz
+  'c072_P':{pr:485,u:'Unidad'},        // Tostitos Salsa+Queso 2pk
+  'c206_P':{pr:3270,u:'Unidad'},       // Pechuga de pollo 20lb
+  'c196_P':{pr:1540,u:'Unidad'},       // Muslo entero de pollo 20lb
+  'c205_P':{pr:115,u:'Libras'},        // Muslo bate por lb
+  'c204_P':{pr:115,u:'Libras'},        // Muslo largo por lb
+  'c066_P':{pr:198,u:'Unidad'},        // Pasta de tomate Linda 1kg
+  'c116_P':{pr:430,u:'Libras'},        // Clavo dulce especia LBS
+  // Limpieza PriceSmart
+  'l007_P':{pr:415,u:'Caja'},
+  'l023_P':{pr:520,u:'Unidad'},
+  'l024_P':{pr:555,u:'Unidad'},
+  'l027_P':{pr:995,u:'Unidad'},
+  'l021_P':{pr:1030,u:'Unidad'},
+  'l014_P':{pr:1030,u:'Paquete'},
+  'l015_P':{pr:1550,u:'Paquete'},
+  'l016_P':{pr:1190,u:'Paquete'},
+  'l038_P':{pr:850,u:'Unidad'},
+  'l039_P':{pr:850,u:'Unidad'},
+  'l040_P':{pr:1130,u:'Unidad'},
+  'l048_P':{pr:1870,u:'Unidad'},
+  'l051_P':{pr:1480,u:'Paquete'},
+
+  // ── SUPERMERCADO JARABACOA ───────────────────────────────
+  'c121_S':{pr:1025,u:'25 Libras'},    // Arroz El Surco 25lb
+  'c045_S':{pr:394,u:'Paquete'},       // Carnation Leche con queso 6/312g
+  'c200_S':{pr:150,u:'Unidad'},        // Refrescos Coca Cola 2L
+  'c201_S':{pr:80,u:'Unidad'},         // Sprite 2L
+  'c138_S':{pr:123,u:'8und'},          // Pan hamburguesa Lumijor
+  'c134_S':{pr:156,u:'Unidad'},        // Pan integral Lumijor
+  'c048_S':{pr:370,u:'Unidad'},        // Yogurt Yoka GL
+  'c049_S':{pr:233,u:'Unidad'},        // Yogurt sin azucar Yoplait
+  'c051_S':{pr:456,u:'Unidad'},        // Margarina Dorina 45oz
+  'c111_S':{pr:485,u:'Unidad'},        // Curry en polvo Badia 16oz
+  'c158_S':{pr:187,u:'Unidad'},        // Polvo de hornear Levapan 1lb
+  'c126_S':{pr:91,u:'Unidad'},         // Petit pois La Famosa 300g
+  'c059_S':{pr:510,u:'Galón'},         // Aceite soya El Gallo 250oz
+  'c124_S':{pr:166,u:'Unidad'},        // Habichuela negra Linda
+  'c103_S':{pr:86,u:'Unidad'},         // Sopa/Caldo Maggie
+  'c095_S':{pr:564,u:'Galón'},         // Sazon Baldom Ranchero GL
+  'c096_S':{pr:294,u:'Unidad'},        // Goya Adobo con pimienta 28oz
+  'c062_S':{pr:282,u:'Unidad'},        // Sal marina Goya con molino
+  'c028_S':{pr:570,u:'100 und-Paq'},   // Plato Plastifar doble 100/1
+  'c068_S':{pr:719,u:'Galón'},         // Mayonesa Baldom 1GL
+  'c009_S':{pr:276,u:'Unidad'},        // Lavaplatos Cruz Verde GL
+  'c008_S':{pr:247,u:'Unidad'},        // Axion jabon limon 1.4L
+  'c020_S':{pr:519,u:'Unidad-Caja'},   // Guantes nitrilo 100/1
+  'c022_S':{pr:450,u:'Unidad-Caja'},   // Gorros desechables 100/1
+  'c023_S':{pr:748,u:'Galón'},         // Gel antibacterial GL
+  'c031_S':{pr:130,u:'50 und-Paq'},    // Vasos plastico 50/1
+  'c160_S':{pr:105,u:'Unidad'},        // Baking Soda Arm Hammer
+  // Limpieza Supermercado
+  'l026_S':{pr:189,u:'Unidad'},        // Cubeta plastica 14L
+  'l046_S':{pr:841,u:'Unidad'},        // Tide Pods Downy
+  'l051_S':{pr:1779,u:'Unidad'},       // Kleenex toalla rollos
+  'l052_S':{pr:889,u:'Unidad'},        // Papel bano Kleenex jumbo
+  'l030_S':{pr:428,u:'Unidad'},        // Lysol All Purpose
+  'l029_S':{pr:433,u:'Unidad'},        // Lysol Power Bathrooms
+  'l017_S':{pr:391,u:'Unidad'},        // Lysol Mold Mildew
+  'l037_S':{pr:331,u:'Unidad'},        // Febreze Fabric Downy
+  'l019_S':{pr:229,u:'Unidad'},        // Glade ambientador
+
+  // ── CARNICERIA ──────────────────────────────────────────
+  'c195_C':{pr:185,u:'Libras'},        // Masa res (cuadri) por lb
+  'c215_C':{pr:180,u:'Libras'},        // Masa de cerdo por lb
+
+  // ── CAFE MONTE ALTO ─────────────────────────────────────
+  'c194_CA':{pr:243,u:'Unidad'}        // Cafe Jarabacoa molido 336g
+};
 async function loadCustomProducts(){
   try{
     var custom=await DB.get('/customProducts');
