@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -562,7 +563,7 @@ function setupApp(){
   if(role==='cocinera'){
     document.getElementById('cocView').style.display='block';
     document.getElementById('admView').style.display='none';
-    document.getElementById('wkNav').style.display='none';
+    document.getElementById('wkNav').style.display='flex';
     renderDayTabs('dayTabs','selDay');renderMealTabs('mealTabs','selMeal');
     document.getElementById('srchCoc').oninput=()=>renderCocList();
   } else {
@@ -622,13 +623,41 @@ async function saveSemName(val){
   await save('/semanaInfo/'+wk()+'/semName', val||null);
   setSyncBar('✓ Nombre guardado','sok');
 }
-function changeWeek(dir){
+async function changeWeek(dir){
+  // Si vamos hacia adelante, copiar el stock que quedó a la semana siguiente
+  if(dir>0){
+    var prevWk=wk(); // semana actual ANTES de mover
+    var prevData=await DB.get('/semanas/'+prevWk)||{};
+    // Calcular nextWk
+    var d2=new Date(weekStart);d2.setDate(d2.getDate()+7);
+    var nextWk=d2.toISOString().slice(0,10).replace(/-/g,'_');
+    // Calcular lo que quedó de cada producto
+    var nextData={};
+    ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){
+      var stock=Number(prevData['s_'+p.id]||0);
+      var used=0;
+      for(var day=0;day<7;day++){for(var meal=0;meal<4;meal++){used+=Number(prevData['d'+day+'_m'+meal+'_'+p.id]||0);}}
+      var quedo=Math.max(0,stock-used);
+      if(quedo>0){
+        nextData['s_'+p.id]=quedo;
+        nextData['sd_'+p.id]=quedo+(p.u?' '+p.u.split('-')[0].trim():'');
+      }
+    });});
+    // Mergear con datos existentes: SIEMPRE sobrescribir stock (s_ y sd_)
+    // pero conservar los registros de uso (d0_m0_) que ya tenga
+    var existing=await DB.get('/semanas/'+nextWk)||{};
+    Object.keys(nextData).forEach(function(k){
+      existing[k]=nextData[k]; // siempre copiar stock inicial
+    });
+    await DB.set('/semanas/'+nextWk, existing);
+  }
   var d=new Date(weekStart);
   d.setDate(d.getDate()+dir*7);
   weekStart=d;
   presMonth=d.getMonth();
   updateWkLabel();
   startPolling();
+  if(role==='cocinera'){renderDayTabs('dayTabs','selDay');renderMealTabs('mealTabs','selMeal');}
   // Immediately update presupuesto label if on that panel
   var active=document.querySelector('.panel.on');
   if(active&&active.id==='pPresupuesto') renderPresupuesto();
@@ -769,6 +798,7 @@ function renderStockList(){
           <div class="bw" style="max-width:120px"><div class="bf" style="width:${st.pct}%;background:${bc}"></div></div>
         </div>
         ${role==='jeidi'?`<button class="chk${isDone?' on':''}" onclick="toggleChk('${p.id}')">${isDone?'✓':'○'}</button>`:''}
+        ${role==='jeidi'?`<button data-id="${p.id}" data-n="${p.n}" onclick="borrarProducto(this.dataset.id,this.dataset.n)" style="padding:3px 8px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;cursor:pointer;color:#dc2626;margin-left:2px">🗑</button>`:''}
       </div>`;
     }
     if(ch)html+=`<div class="cat">${cat.cat}</div>${ch}`;
@@ -809,10 +839,15 @@ function renderCorregir(){
       html+='</div>';
       if(stock>0){html+='<div class="corr-bar"><div class="corr-bar-f" style="width:'+pct+'%;background:'+bc+'"></div></div>';}
       if(sv){html+='<div style="font-size:10px;color:#16a34a;font-weight:600;margin-top:3px">'+(sv||0)+' '+(weekData['su_'+p.id]||p.u.split('-')[0].trim())+(weekData['sfr_'+p.id]?' '+weekData['sfr_'+p.id]:'')+(weekData['se_'+p.id]?' + '+weekData['se_'+p.id]+' '+(weekData['seu_'+p.id]||''):'')+'</div>';}
+      if(role==='jeidi') html+='<button data-id="'+p.id+'" onclick="borrarProductoById(this.dataset.id)" style="display:block;width:100%;margin-top:6px;padding:4px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;cursor:pointer;color:#dc2626;font-weight:600">🗑 Eliminar: '+p.n+'</button>';
       html+='</div>';
     }
   }
-  document.getElementById('corrList').innerHTML=html||'<div class="empty"><div class="ei">🔍</div></div>';
+  var corrHeader='';
+  if(role==='jeidi'){
+    corrHeader='<button onclick="copiarStockSiguiente()" style="display:block;width:calc(100%-16px);margin:8px;padding:11px;background:#16a34a;color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📦 Copiar stock restante → semana siguiente</button>';
+  }
+  document.getElementById('corrList').innerHTML=corrHeader+(html||'<div class="empty"><div class="ei">🔍</div></div>');
 }
 async function onStkV3(el){
   var id=el.dataset.id;
@@ -861,12 +896,15 @@ function calcListaTotal(){
   var totalRD=0;
   ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){
     var item=listaData[p.id]||{};
-    var qty=Number(item.q||0);
     var pti=item.ti||DTIENDA[p.id]||'S';
     var prObj=precios[p.id+'_'+pti]||{};
-    var prBase=Number(item.pr||prObj.pr||0);
-    var pr=Number(prBase||0);
-    if(qty>0&&pr>0)totalRD+=qty*pr;
+    var pr=Number(item.pr||prObj.pr||0);
+    // Cantidad actual
+    var qty=Number(item.q||0);
+    if(qty>0&&pr>0) totalRD+=qty*pr;
+    // Viajes anteriores con +más
+    var prevCompras=item.compras||[];
+    prevCompras.forEach(function(c){ var cq=Number(c.q||0); if(cq>0&&pr>0) totalRD+=cq*pr; });
   });});
   return {totalRD:totalRD,totalUSD:totalRD/tasa};
 }
@@ -906,7 +944,7 @@ function renderLista(){
   html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
   html+='<span style="font-size:11px;font-weight:700;color:#6b7280;white-space:nowrap">Semana:</span>';
   html+='<input type="text" value="'+semName+'" placeholder="Ej: 19A y 20B" style="flex:1;padding:6px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:700;color:#0d4db5;outline:none" onchange="saveSemName(this.value)">';
-  html+='<button onclick="showAddProduct()" style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Producto</button>';
+  html+='<button onclick="showAddProduct()" style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Producto</button><button onclick="restaurarLista()" style="padding:6px 10px;background:#e8f0fe;border:1.5px solid #1a6ef5;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:#0d4db5;margin-left:4px">↩ Restaurar</button><button onclick="limpiarLista()" style="padding:6px 10px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:#dc2626;margin-left:4px">🗑 Limpiar</button>';
   html+='</div>';
 
   // Personas
@@ -961,7 +999,7 @@ function renderLista(){
     var bt=TIENDAS[bti];
     var bcount=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){
       var pti=listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:(DTIENDA[p.id]||'S');
-      return pti===bt&&listaData[p.id]&&Number(listaData[p.id].q||0)>0;
+      return pti===bt&&listaData[p.id]!=null;
     }).length;
     if(!bcount) continue;
     html+='<button data-t="'+bt+'" onclick="downloadListaTienda(this.dataset.t)" style="padding:5px 10px;background:'+tcolors[bt]+';color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">'+tnames[bt]+' ('+bcount+')</button>';
@@ -971,8 +1009,14 @@ function renderLista(){
   // Products by tienda
   for(var ti=0;ti<TIENDAS.length;ti++){
     var t=TIENDAS[ti];
-    var prods=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){return (listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:DTIENDA[p.id]||'S')===t;});
-    var conQ=prods.filter(function(p){return listaData[p.id]&&listaData[p.id].q>0;});
+    var prods=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){
+      var pti=listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:DTIENDA[p.id]||'S';
+      if(pti!==t) return false;
+      var it=listaData[p.id]||{};
+      // Show if: has qty, is done/comprado, or has previous compras history
+      return it.q!=null || it.c || (it.compras&&it.compras.length>0);
+    });
+    var conQ=prods.filter(function(p){var it=listaData[p.id]||{};return Number(it.q||0)>0||it.c||(it.compras&&it.compras.length>0);});
     var pend=conQ.filter(function(p){return !listaData[p.id].c;}).length;
     var comp2=conQ.filter(function(p){return listaData[p.id]&&listaData[p.id].c;}).length;
     html+='<div class="thdr"><span class="tname">'+TLBL[t]+'</span><span class="tcnt">'+pend+' pendientes · '+comp2+' ✓</span></div>';
@@ -995,7 +1039,16 @@ function renderLista(){
       var stockTxt=queda>0?'<span style="color:#16a34a;font-weight:600">Queda: '+queda+'</span>':stock>0?'<span style="color:#dc2626;font-weight:600">Agotado</span>':'';
       html+='<div class="li-row'+(done?' done':'')+'">';
       html+='<div style="flex:1"><div class="li-name"'+(done?' style="text-decoration:line-through;opacity:0.5"':'')+'>'+p.n+'</div>';
-          var prevC=item.compras||[];var prevTxt=prevC.length>0?' · <span style="color:#16a34a;font-weight:600">'+prevC.length+' viaje'+(prevC.length>1?'s':'')+' anteriores ✓</span>':'';
+          var prevC=item.compras||[];
+          var prevTxt='';
+          if(prevC.length>0){
+            prevTxt+=' · ';
+            prevC.forEach(function(c,ci){
+              prevTxt+='<span style="text-decoration:line-through;color:#6b7280;font-size:10px">'+c.q+' '+c.u+'</span>';
+              if(ci<prevC.length-1) prevTxt+=', ';
+            });
+            prevTxt+=' <span style="color:#16a34a;font-weight:700;font-size:10px">✓ comprado</span>';
+          }
           html+='<div class="li-det">'+stockTxt+(subtotal>0?' '+fmtRD(subtotal)+itbisLbl:'')+prevTxt+'</div></div>';
       html+='<input class="qi'+(qty?' hq':'')+'" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="'+qty+'" data-id="'+p.id+'" onchange="onLiQty(this)">';
       // Unit selector
@@ -1004,7 +1057,7 @@ function renderLista(){
       html+='<select class="sel" data-id="'+p.id+'" onchange="onLiUnit(this)">'+unitOpts+'</select>';
       // Price (jeidi only)
       var ptienda=item.ti||DTIENDA[p.id]||'S';
-      var prObjLi=precios[p.id+'_'+ptienda]||{};
+      var prObjLi=precios[p.id+'_'+ptienda]||precios[p.id+'_P']||precios[p.id+'_S']||{};
       var prShow=pr||(prObjLi.pr||'');
       var ptiShow=item.ti||DTIENDA[p.id]||'S';
       var hasITBIS=ITBIS_TIENDAS.indexOf(ptiShow)>-1;
@@ -1033,6 +1086,7 @@ function renderLista(){
         var chkCls='chk'+(done?' on':'');
         html+='<button class="'+chkCls+'" data-id="'+p.id+'" onclick="toggleLi(this.dataset.id)">'+( done?'✓':'○')+'</button>';
         html+='<button data-id="'+p.id+'" onclick="borrarItem(this.dataset.id)" style="padding:3px 7px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;cursor:pointer;color:#dc2626;margin-left:2px">🗑</button>';
+        if(done||(!qty&&item.compras&&item.compras.length>0)) html+='<button data-id="'+p.id+'" onclick="agregarMas(this.dataset.id)" style="padding:3px 8px;background:#e8f0fe;border:1.5px solid #1a6ef5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#0d4db5">+más</button>';
       }
       html+='</div>';
     }
@@ -1069,7 +1123,8 @@ async function saveSI(){
   const info={...semInfo,
     semA:Number(document.getElementById('siA')?.value||0),
     semB:Number(document.getElementById('siB')?.value||0),
-    staff:Number(document.getElementById('siS')?.value||50)
+    staff:Number(document.getElementById('siS')?.value||50),
+    vt:Number(document.getElementById('siVT')?.value||0)
   };
   semInfo=info;
   await save('/semanaInfo/'+wk(),info);
@@ -1104,9 +1159,10 @@ async function onLiPr(el){
   el.style.background=pr?'#e8f0fe':'#fafafa';
   el.style.borderColor=pr?'#1a6ef5':'#e5e7eb';
   await save('/lista/'+wk()+'/'+id,listaData[id]);
-  // Save to global precios too
-  if(pr)precios[id]=pr;
-  await save('/precios/'+id,pr||null);
+  // Save to global precios too with tienda key
+  const curTiLiPr=(listaData[id]&&listaData[id].ti)||DTIENDA[id]||'S';
+  if(pr){precios[id+'_'+curTiLiPr]={pr:pr,u:listaData[id]&&listaData[id].u||'Unidad'};}
+  await save('/precios/'+id+'_'+curTiLiPr,pr?{pr:pr,u:(listaData[id]&&listaData[id].u)||'Unidad'}:null);
   renderPresupuesto();
 }
 async function onLiTienda(el){
@@ -1130,6 +1186,47 @@ async function onLiTienda(el){
     }
   }
 }
+async function restaurarLista(){
+  if(!confirm('¿Restaurar todos los productos del inventario en la lista?\nSe agregarán los que falten. Los que ya tienen cantidad no se tocan.')) return;
+  ALL_CATS.forEach(function(cat){
+    cat.items.forEach(function(p){
+      if(!listaData[p.id]||(!listaData[p.id].q&&!listaData[p.id].c&&!(listaData[p.id].compras&&listaData[p.id].compras.length))){
+        var ti=DTIENDA[p.id]||'S';
+        // Copy price from precios if available
+        var prObj=precios[p.id+'_'+ti]||precios[p.id+'_P']||precios[p.id+'_S']||{};
+        var pr=prObj.pr||null;
+        listaData[p.id]={u:p.u,ti:ti,pr:pr,q:0};
+      }
+    });
+  });
+  await DB.set('/lista/'+wk(), listaData);
+  setSyncBar('✓ Lista restaurada — '+Object.keys(listaData).length+' productos','sok');
+  renderLista();
+}
+async function limpiarLista(){
+  var tiendas=['P','S','C','M','A','CA','MT','TODO'];
+  var nombres={P:'PriceSmart',S:'Supermercado',C:'Carnicería',M:'Mercadito',A:'Almoloya',CA:'Café Monte Alto',MT:'Monte Alto',TODO:'TODAS'};
+  var sel=prompt('¿Qué lista limpiar?\n1-PriceSmart\n2-Supermercado\n3-Carnicería\n4-Mercadito\n5-Almoloya\n6-Café Monte Alto\n7-Monte Alto\n8-TODAS');
+  if(!sel)return;
+  var t=tiendas[parseInt(sel)-1];
+  if(!t){alert('Número inválido');return;}
+  if(!confirm('¿Limpiar cantidades de '+nombres[t]+'?'))return;
+  // Solo borrar q y c de los items en /lista/ — NO tocar /semanas/ ni stock
+  Object.keys(listaData).forEach(function(id){
+    var pti=(listaData[id]&&listaData[id].ti)?listaData[id].ti:(DTIENDA[id]||'S');
+    if(t==='TODO'||pti===t){
+      delete listaData[id].q;
+      delete listaData[id].c;
+      delete listaData[id].compras;
+    }
+  });
+  // Guardar solo /lista/ en Firebase
+  await DB.set('/lista/'+wk(), Object.keys(listaData).length>0?listaData:null);
+  setSyncBar('✓ Lista de '+nombres[t]+' limpiada','sok');
+  renderLista();
+}
+
+
 async function borrarItem(id){
   if(!confirm('¿Borrar este producto de la lista?')) return;
   delete listaData[id];
@@ -1137,16 +1234,47 @@ async function borrarItem(id){
   setSyncBar('✓ Producto eliminado de la lista','sok');
   renderLista();
 }
+function borrarProductoById(id){
+  var nombre='este producto';
+  for(var ci=0;ci<ALL_CATS.length;ci++){var found=ALL_CATS[ci].items.find(function(x){return x.id===id;});if(found){nombre=found.n;break;}}
+  borrarProducto(id,nombre);
+}
+async function borrarProducto(id, nombre){
+  if(!confirm('¿Eliminar "'+nombre+'" del inventario?\nSe borrará del Stock, Lista y Corregir de TODAS las semanas.')) return;
+  // Quitar de ALL_CATS en memoria
+  for(var ci=0;ci<ALL_CATS.length;ci++){
+    var fi=ALL_CATS[ci].items.findIndex(function(x){return x.id===id;});
+    if(fi!==-1){ALL_CATS[ci].items.splice(fi,1);break;}
+  }
+  // Borrar de Firebase
+  await DB.set('/customProducts/'+id, null);
+  await DB.set('/editedProducts/'+id, null);
+  await DB.set('/lista/'+wk()+'/'+id, null);
+  await DB.set('/semanas/'+wk()+'/s_'+id, null);
+  await DB.set('/semanas/'+wk()+'/sd_'+id, null);
+  await DB.set('/precios/'+id+'_P', null);
+  await DB.set('/precios/'+id+'_S', null);
+  await DB.set('/precios/'+id+'_C', null);
+  await DB.set('/precios/'+id+'_M', null);
+  await DB.set('/precios/'+id+'_A', null);
+  await DB.set('/precios/'+id+'_CA', null);
+  // Limpiar en memoria
+  delete listaData[id];
+  delete weekData['s_'+id];
+  delete weekData['sd_'+id];
+  delete DTIENDA[id];
+  setSyncBar('✓ Producto eliminado del inventario','sok');
+  refreshView();
+}
 async function agregarMas(id){
   var cur=listaData[id]||{};
-  // Keep the purchased record but reset quantity for new purchase
-  // Save previous purchase amount
   var prevQty=Number(cur.q||0);
   var prevCompras=cur.compras||[];
   prevCompras.push({q:prevQty,u:cur.u||'',t:cur.ti||DTIENDA[id]||'S',fecha:new Date().toLocaleDateString('es-DO')});
+  // Keep price and unit, only clear quantity and comprado status
   listaData[id]={...cur,q:'',c:false,compras:prevCompras};
   await save('/lista/'+wk()+'/'+id,listaData[id]);
-  setSyncBar('✓ Listo para agregar más cantidad','sok');
+  setSyncBar('✓ Listo — precio guardado, agrega nueva cantidad','sok');
   renderLista();
 }
 function addITBIS(sel){
@@ -1169,6 +1297,7 @@ async function toggleLi(id){
   var cur=listaData[id]||{};
   var wasComprado=cur.c||false;
   var nowComprado=!wasComprado;
+  // Keep all data, only change comprado status
   listaData[id]={...cur,c:nowComprado};
   await save('/lista/'+wk()+'/'+id,listaData[id]);
 
@@ -1303,7 +1432,7 @@ async function renderPresupuesto(){
 
   if(isJ){
     html+='<div class="bcard"><div class="btit">🏷 Precio por producto (RD$)</div>';
-    html+='<div class="bsub">Precios por tienda. Se usan automáticamente según donde compres cada producto. Para Supermercado, Café Monte Alto y Monte Alto se agrega 14% ITBIS automáticamente.</div>';
+    html+='<div class="bsub">Precios por tienda. Se usan automáticamente según donde compres cada producto. Los precios se usan tal como los ingresas. Agrega el ITBIS usando el producto "ITBIS Supermercado".</div>';
     // Tienda tabs
     html+='<div style="display:flex;gap:6px;margin-bottom:10px">';
     var ptabs=[{k:'P',l:'🔵 PriceSmart'},{k:'S',l:'🟢 Supermercado'},{k:'C',l:'🔴 Carnicería'},{k:'M',l:'🟡 Mercadito'},{k:'A',l:'💧 Almoloya'},{k:'CA',l:'☕ Café Monte Alto'},{k:'ITBIS',l:'🧾 ITBIS'}];
@@ -1464,6 +1593,32 @@ function filPr(){
 }
 
 // ── HISTORIAL ─────────────────────────────────────────────
+async function copiarStockSiguiente(){
+  if(!confirm('¿Copiar el stock restante de esta semana a la semana siguiente?\nEsto sobreescribirá el stock inicial de la semana siguiente.')) return;
+  var prevWk=wk();
+  var prevData=await DB.get('/semanas/'+prevWk)||{};
+  var d2=new Date(weekStart);d2.setDate(d2.getDate()+7);
+  var nextWk=d2.toISOString().slice(0,10).replace(/-/g,'_');
+  var nextData={};
+  var count=0;
+  ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){
+    var stock=Number(prevData['s_'+p.id]||0);
+    var used=0;
+    for(var day=0;day<7;day++){for(var meal=0;meal<4;meal++){used+=Number(prevData['d'+day+'_m'+meal+'_'+p.id]||0);}}
+    var quedo=Math.max(0,stock-used);
+    if(quedo>0){
+      nextData['s_'+p.id]=quedo;
+      nextData['sd_'+p.id]=quedo+(p.u?' '+p.u.split('-')[0].trim():'');
+      count++;
+    }
+  });});
+  if(count===0){alert('No hay stock restante para copiar.');return;}
+  var existing=await DB.get('/semanas/'+nextWk)||{};
+  Object.keys(nextData).forEach(function(k){ existing[k]=nextData[k]; });
+  await DB.set('/semanas/'+nextWk, existing);
+  setSyncBar('✓ Stock copiado a semana '+nextWk+' ('+count+' productos)','sok');
+  alert('✅ Stock copiado correctamente a la semana '+nextWk+'\n'+count+' productos con stock restante.');
+}
 async function guardarSemana(){
   const end=new Date(weekStart);end.setDate(end.getDate()+6);
   const fmt=dt=>dt.toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'});
@@ -1541,110 +1696,127 @@ async function clearWeekData(){
   refreshView();
   alert('Datos de la semana borrados correctamente.');
 }
-function downloadReporteSemana(){
-  const end=new Date(weekStart);end.setDate(end.getDate()+6);
+function downloadReporteSemana(){try{
+  const endDt=new Date(weekStart);endDt.setDate(endDt.getDate()+6);
   const fmt=dt=>dt.toLocaleDateString('es-DO',{day:'numeric',month:'short',year:'numeric'});
   const fmtNum=n=>Number(n||0).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const semLabel=semInfo.semName||fmt(weekStart)+' — '+fmt(endDt);
   const tasa=Number(presData.tasa||60);
   const staffUSD=Number(presData.staff_weekly||900);
   const grpUSD=Number(presData['g_'+new Date().getFullYear()+'_'+presMonth]||0);
   const budgetUSD=staffUSD*4+grpUSD;
   const budgetRD=budgetUSD*tasa;
-  const {totalRD}=calcListaTotal();
-  const remRD=budgetRD-totalRD;
-
-  const semName=semInfo.semName||'';
-  const semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50);
   const ramBudget=Number(semInfo.ramBudget||0);
+  const semA=Number(semInfo.semA||0),semB=Number(semInfo.semB||0),staff=Number(semInfo.staff||50),vt=Number(semInfo.vt||0);
+  const totalPers=semA+semB+staff+vt;
+
+  // Calcular compras por tienda incluyendo viajes anteriores
+  const TLBL_RPT={P:'🔵 PriceSmart',S:'🟢 Supermercado',C:'🔴 Carnicería',M:'🟡 Mercadito',A:'💧 Almoloya',CA:'☕ Café Monte Alto',MT:'🏔 Monte Alto',ITBIS:'🧾 ITBIS'};
+  const TIENDAS_RPT=['P','S','C','M','A','CA','MT','ITBIS'];
+  const tiendaProds={};
+  TIENDAS_RPT.forEach(t=>{tiendaProds[t]=[];});
+  let grandTotal=0;
+  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
+    const item=listaData[p.id]||{};
+    const pti=item.ti||DTIENDA[p.id]||'S';
+    const prObj=precios[p.id+'_'+pti]||{};
+    const pr=Number(item.pr||prObj.pr||0);
+    const u=item.u||p.u;
+    // cantidad actual + viajes anteriores
+    const qtyCur=Number(item.q||0);
+    const prevC=item.compras||[];
+    const qtyPrev=prevC.reduce((s,c)=>s+Number(c.q||0),0);
+    const qtyTotal=qtyCur+qtyPrev;
+    if(qtyTotal>0){
+      const cost=qtyTotal*pr;
+      grandTotal+=cost;
+      tiendaProds[pti].push({n:p.n,u,qtyCur,qtyPrev,qtyTotal,pr,cost});
+    }
+  }));
+
+  // Calcular total por tienda para presupuesto
+  const gastoPorTienda={};
+  TIENDAS_RPT.forEach(t=>{
+    gastoPorTienda[t]=tiendaProds[t].reduce((s,p)=>s+p.cost,0);
+  });
+  const remRD=ramBudget>0?ramBudget-grandTotal:budgetRD-grandTotal;
 
   let html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Reporte Semana ${semLabel}</title>
+  <title>Reporte ${semLabel}</title>
   <style>
-    body{font-family:Arial,sans-serif;margin:20px;color:#1a1a1a;font-size:13px}
-    h1{color:#0d4db5;font-size:20px;margin-bottom:4px}
-    h2{color:#0d4db5;font-size:15px;margin:20px 0 8px;border-bottom:2px solid #e8f0fe;padding-bottom:4px}
-    h3{color:#374151;font-size:13px;margin:12px 0 6px}
-    .header{background:#0d4db5;color:white;padding:16px 20px;border-radius:8px;margin-bottom:20px}
-    .header h1{color:white;margin:0 0 4px}
-    .header p{margin:2px 0;opacity:0.85;font-size:12px}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-    .stat{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px;text-align:center}
-    .stat-n{font-size:20px;font-weight:800;color:#0d4db5}
-    .stat-l{font-size:10px;color:#6b7280;text-transform:uppercase;margin-top:3px}
-    .budget{background:${remRD>=0?'#f0fdf4':'#fee2e2'};border:1px solid ${remRD>=0?'#86efac':'#fca5a5'};border-radius:8px;padding:14px;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
-    th{background:#0d4db5;color:white;padding:7px 10px;text-align:left;font-size:11px}
-    td{padding:6px 10px;border-bottom:1px solid #f3f4f6}
-    tr:nth-child(even){background:#f8f9fa}
-    .meals-table th{background:#374151}
-    .cat-row{background:#e8f0fe!important;font-weight:700;color:#0d4db5}
-    .agotado{color:#dc2626;font-weight:700}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:13px}
+    .header{background:#0d4db5;color:white;padding:16px 20px;border-radius:10px;margin-bottom:20px}
+    .header h1{font-size:20px;margin-bottom:6px}
+    .header p{font-size:12px;opacity:0.85;margin:2px 0}
+    h2{color:#0d4db5;font-size:15px;margin:20px 0 10px;border-bottom:2px solid #e8f0fe;padding-bottom:5px}
+    h3{font-size:13px;font-weight:700;margin:12px 0 5px;padding:6px 10px;border-radius:6px}
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+    .stat{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center}
+    .stat-n{font-size:22px;font-weight:800;color:#0d4db5}
+    .stat-l{font-size:10px;color:#6b7280;text-transform:uppercase;margin-top:2px}
+    .stat-total{background:#e8f0fe;border-color:#1a6ef5}
+    .pres-box{border-radius:8px;padding:14px;margin-bottom:16px}
+    .pres-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.07);font-size:13px}
+    .pres-row:last-child{border:none;font-weight:700;font-size:14px;padding-top:10px}
+    .green{background:#f0fdf4;border:1px solid #86efac}
+    .red{background:#fee2e2;border:1px solid #fca5a5}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12px}
+    th{background:#0d4db5;color:white;padding:6px 8px;text-align:left;font-size:11px}
+    td{padding:5px 8px;border-bottom:1px solid #f3f4f6}
+    tr:nth-child(even) td{background:#f8f9fa}
+    .cat-row td{background:#e8f0fe!important;font-weight:700;color:#0d4db5}
+    .tienda-h{background:#1e3a5f;color:white}
+    .tienda-sub{background:#f1f5f9;font-weight:700;color:#0d4db5}
+    .grand{background:#0d4db5;color:white;padding:12px 16px;border-radius:8px;display:flex;justify-content:space-between;font-size:15px;font-weight:800;margin:10px 0 20px}
     .ok{color:#16a34a;font-weight:700}
-    .comprado{text-decoration:line-through;opacity:0.5}
-    @media print{body{margin:0}.no-print{display:none}}
+    .agotado{color:#dc2626;font-weight:700}
+    @media print{.no-print{display:none}body{padding:10px}}
   </style></head><body>
+
   <div class="header">
     <h1>🍽 Reporte Semanal — Mission of Hope</h1>
-    <p>Semana: <strong>${semLabel}</strong></p>
-    <p>Generado: ${new Date().toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
-    <p>Tasa de cambio: 1 USD = ${tasa} RD$</p>
+    <p>Semana: <strong>${semLabel}</strong> &nbsp;·&nbsp; ${fmt(weekStart)} al ${fmt(endDt)}</p>
+    <p>Generado el ${new Date().toLocaleDateString('es-DO',{day:'numeric',month:'long',year:'numeric'})} a las ${new Date().toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'})}</p>
+    <p>Tasa: 1 USD = RD$ ${tasa}</p>
   </div>
 
-  <h2>👥 Personas y comidas</h2>
+  <h2>👥 Personas esta semana</h2>
   <div class="stats">
     <div class="stat"><div class="stat-n">${semA}</div><div class="stat-l">${semInfo.lblA||'Semana A'}</div></div>
     <div class="stat"><div class="stat-n">${semB}</div><div class="stat-l">${semInfo.lblB||'Semana B'}</div></div>
     <div class="stat"><div class="stat-n">${staff}</div><div class="stat-l">Staff + Internos</div></div>
-    <div class="stat"><div class="stat-n">${semA+semB+staff}</div><div class="stat-l">Total personas</div></div>
+    <div class="stat"><div class="stat-n">${vt}</div><div class="stat-l">✈️ Vision Trips</div></div>
+    <div class="stat stat-total"><div class="stat-n">${totalPers}</div><div class="stat-l">TOTAL</div></div>
   </div>
-  <table class="meals-table">
-    <tr><th>Comida</th>${DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join('')}<th>Total semana</th></tr>
-    ${MEALS.map((m,mi)=>{
-      let rowTotal=0;
-      const cells=DAYS.map((d,di)=>{const v=Number(semInfo['meal_'+mi+'_'+di]||0);rowTotal+=v;return `<td style="text-align:center">${v||'—'}</td>`;}).join('');
-      return `<tr><td><strong>${m}</strong></td>${cells}<td style="text-align:center;font-weight:700">${rowTotal||'—'}</td></tr>`;
-    }).join('')}
-  </table>
 
   <h2>💰 Presupuesto</h2>
-  <div class="budget">
-    <table style="margin:0">
-      <tr><td><strong>Presupuesto total</strong></td><td><strong>RD$ ${fmtNum(budgetRD)}</strong></td><td style="color:#6b7280">$ ${fmtNum(budgetUSD)}</td></tr>
-      <tr><td>Staff (${fmtNum(staffUSD*tasa)} RD$/sem × 4)</td><td>RD$ ${fmtNum(staffUSD*4*tasa)}</td><td style="color:#6b7280">$ ${fmtNum(staffUSD*4)}</td></tr>
-      <tr><td>Grupos del mes</td><td>RD$ ${fmtNum(grpUSD*tasa)}</td><td style="color:#6b7280">$ ${fmtNum(grpUSD)}</td></tr>
-      <tr><td>Presupuesto Ramona esta semana</td><td>RD$ ${fmtNum(ramBudget)}</td><td></td></tr>
-      <tr style="background:${remRD>=0?'#f0fdf4':'#fee2e2'}"><td><strong>${remRD>=0?'✅ Sobrante':'❌ Faltante'}</strong></td><td><strong style="color:${remRD>=0?'#16a34a':'#dc2626'}">RD$ ${fmtNum(Math.abs(remRD))}</strong></td><td style="color:#6b7280">$ ${fmtNum(Math.abs(remRD/tasa))}</td></tr>
-      <tr><td><strong>Total compras (lista)</strong></td><td><strong>RD$ ${fmtNum(totalRD)}</strong></td><td style="color:#6b7280">$ ${fmtNum(totalRD/tasa)}</td></tr>
-    </table>
+  <div class="pres-box ${remRD>=0?'green':'red'}">
+    <div class="pres-row"><span>Presupuesto asignado a Ramona</span><span><strong>RD$ ${fmtNum(ramBudget)}</strong></span></div>
+    <div class="pres-row"><span>Presupuesto total del mes</span><span>RD$ ${fmtNum(budgetRD)} &nbsp;<small style="color:#6b7280">/ $ ${fmtNum(budgetUSD)}</small></span></div>
+    ${TIENDAS_RPT.filter(t=>gastoPorTienda[t]>0).map(t=>`
+    <div class="pres-row" style="padding-left:16px;color:#374151"><span>${TLBL_RPT[t]}</span><span>RD$ ${fmtNum(gastoPorTienda[t])}</span></div>`).join('')}
+    <div class="pres-row"><span><strong>Total gastado</strong></span><span style="color:#dc2626"><strong>RD$ ${fmtNum(grandTotal)}</strong> &nbsp;<small style="color:#6b7280">/ $ ${fmtNum(grandTotal/tasa)}</small></span></div>
+    <div class="pres-row"><span>${remRD>=0?'✅ Sobrante para la próxima semana':'❌ Se pasó del presupuesto'}</span><span style="color:${remRD>=0?'#16a34a':'#dc2626'}"><strong>RD$ ${fmtNum(Math.abs(remRD))}</strong> &nbsp;<small style="color:#6b7280">/ $ ${fmtNum(Math.abs(remRD/tasa))}</small></span></div>
   </div>
 
-  <h2>🛒 Lista de compras</h2>`;
+  <h2>🛒 Compras por tienda</h2>`;
 
-  // Products bought (in lista)
-  const tiendaProds={};
-  TIENDAS.forEach(t=>{tiendaProds[t]=[];});
-  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
-    const item=listaData[p.id]||{};
-    const qty=Number(item.q||0);
-    if(qty>0){
-      const t=item.ti||DTIENDA[p.id]||'S';
-      const pr=Number(item.pr||precios[p.id]||0);
-      tiendaProds[t].push({n:p.n,u:item.u||p.u,qty,pr,cost:qty*pr,done:item.c||false});
-    }
-  }));
-
-  TIENDAS.forEach(t=>{
+  TIENDAS_RPT.forEach(t=>{
     if(!tiendaProds[t].length)return;
-    const subtotal=tiendaProds[t].reduce((s,p)=>s+p.cost,0);
-    html+=`<h3>${TLBL[t]}${subtotal>0?' — RD$ '+fmtNum(subtotal):''}</h3>
-    <table><tr><th>Producto</th><th>Cantidad</th><th>Unidad</th><th>Precio RD$</th><th>Subtotal RD$</th><th>Estado</th></tr>`;
+    const sub=gastoPorTienda[t];
+    html+=`<h3 style="background:#1e3a5f;color:white">${TLBL_RPT[t]} &nbsp;—&nbsp; RD$ ${fmtNum(sub)}</h3>
+    <table><tr><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Precio unit.</th><th>Subtotal</th></tr>`;
     tiendaProds[t].forEach(p=>{
-      html+=`<tr class="${p.done?'comprado':''}"><td>${p.n}</td><td>${p.qty}</td><td>${p.u}</td><td>${p.pr?'RD$ '+fmtNum(p.pr):'—'}</td><td>${p.cost?'RD$ '+fmtNum(p.cost):'—'}</td><td>${p.done?'✅ Comprado':'⏳ Pendiente'}</td></tr>`;
+      const notaCant=p.qtyPrev>0?` <small style="color:#6b7280">(${p.qtyCur} + ${p.qtyPrev} ant.)</small>`:'';
+      html+=`<tr><td>${p.n}</td><td>${p.u}</td><td>${p.qtyTotal}${notaCant}</td><td>${p.pr?'RD$ '+fmtNum(p.pr):'—'}</td><td style="font-weight:700">${p.cost?'RD$ '+fmtNum(p.cost):'—'}</td></tr>`;
     });
-    html+='</table>';
+    html+=`<tr class="tienda-sub"><td colspan="4" style="text-align:right">Subtotal ${TLBL_RPT[t]}</td><td>RD$ ${fmtNum(sub)}</td></tr></table>`;
   });
 
-  html+=`<h2>📦 Inventario — Stock y uso semanal</h2>
+  html+=`<div class="grand"><span>TOTAL COMPRAS SEMANA</span><span>RD$ ${fmtNum(grandTotal)} &nbsp;|&nbsp; $ ${fmtNum(grandTotal/tasa)}</span></div>
+
+  <h2>📦 Inventario — productos usados esta semana</h2>
   <table><tr><th>Producto</th><th>Unidad</th><th>Stock inicial</th><th>Total usado</th><th>Quedó</th><th>Estado</th></tr>`;
 
   ALL_CATS.forEach(cat=>{
@@ -1655,14 +1827,14 @@ function downloadReporteSemana(){
       const stock=Number(weekData[sk(p.id)]||0);
       const used=totalUsed(p.id);
       const quedo=Math.max(0,stock-used);
-      const estado=stock>0&&used>=stock?'<span class="agotado">Agotado</span>':quedo>0?`<span class="ok">${quedo} disponibles</span>`:'Sin stock';
-      html+=`<tr><td>${p.n}</td><td>${p.u}</td><td>${stock||'—'}</td><td>${used||'—'}</td><td>${quedo||'—'}</td><td>${estado}</td></tr>`;
+      const estado=quedo===0&&stock>0?'<span class="agotado">Agotado</span>':quedo>0?`<span class="ok">Quedan ${quedo}</span>`:'—';
+      html+=`<tr><td>${p.n}</td><td>${p.u}</td><td style="text-align:center">${stock||'—'}</td><td style="text-align:center">${used||'—'}</td><td style="text-align:center">${quedo||'—'}</td><td>${estado}</td></tr>`;
     });
   });
 
   html+=`</table>
-  <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:20px">Generado por Sistema de Inventario — Mission of Hope Cocina</p>
-  <button onclick="window.print()" class="no-print" style="display:block;margin:10px auto;padding:10px 24px;background:#0d4db5;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">🖨 Imprimir / Guardar PDF</button>
+  <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:24px">Sistema de Inventario — Mission of Hope Cocina · ${semLabel}</p>
+  <button onclick="window.print()" class="no-print" style="display:block;margin:16px auto;padding:10px 28px;background:#0d4db5;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700">🖨 Imprimir / Guardar PDF</button>
   </body></html>`;
 
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
@@ -1670,7 +1842,9 @@ function downloadReporteSemana(){
   const a=document.createElement('a');a.href=url;
   a.download='Reporte_Semana_MOH_'+wk()+'.html';a.click();
   URL.revokeObjectURL(url);
+  }catch(err){alert('Error al generar reporte: '+err.message);}
 }
+
 function downloadListaTienda(tienda){
   var tFull={P:'PriceSmart',S:'Supermercado',C:'Carniceria',M:'Mercadito',A:'Almoloya',CA:'Cafe Monte Alto',MT:'Monte Alto'};
   var tEmoji={P:'🔵',S:'🟢',C:'🔴',M:'🟡',A:'💧',CA:'☕',MT:'🏔'};
