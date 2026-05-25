@@ -1017,9 +1017,8 @@ function renderLista(){
     var prods=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){
       var pti=listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:DTIENDA[p.id]||'S';
       if(pti!==t) return false;
-      var it=listaData[p.id]||{};
-      // Show if: has qty, is done/comprado, or has previous compras history
-      return Number(it.q||0)>0 || it.c || (it.compras&&it.compras.length>0);
+      // Show if product exists in listaData (restored or has qty/compras)
+      return listaData[p.id]!=null;
     });
     var conQ=prods.filter(function(p){var it=listaData[p.id]||{};return Number(it.q||0)>0||it.c||(it.compras&&it.compras.length>0);});
     var pend=conQ.filter(function(p){return !listaData[p.id].c;}).length;
