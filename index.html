@@ -1047,7 +1047,7 @@ function renderLista(){
       }
       // Use compras entry data if showing under a compras tienda
       var qty=isComprasTienda?(compraEntry?compraEntry.q:''):(item.q!=null?item.q:'');
-      var done=isComprasTienda?true:(item.c||false);
+      var done=isComprasTienda?(compraEntry&&compraEntry.done===true):(item.c||false);
       var pr=isComprasTienda?(compraEntry?compraEntry.pr||'':''):(item.pr!=null?item.pr:'');
       var u=isComprasTienda?(compraEntry?compraEntry.u||item.u||p.u:item.u||p.u):(item.u||p.u);
       var stock=Number(weekData[sk(p.id)]||0);
@@ -1063,12 +1063,13 @@ function renderLista(){
           var prevC=item.compras||[];
           var prevTxt='';
           if(prevC.length>0){
-            prevTxt+=' · ';
             prevC.forEach(function(c,ci){
-              prevTxt+='<span style="text-decoration:line-through;color:#6b7280;font-size:10px">'+c.q+' '+c.u+'</span>';
-              if(ci<prevC.length-1) prevTxt+=', ';
+              if(c.done===true){
+                // Show comprado entries as strikethrough
+                prevTxt+=' · <span style="text-decoration:line-through;color:#6b7280;font-size:10px">'+c.q+' '+c.u+'</span> <span style="color:#16a34a;font-weight:700;font-size:10px">✓</span>';
+              }
+              // Non-comprado entries in compras are shown as the product row itself (isComprasTienda), not here
             });
-            prevTxt+=' <span style="color:#16a34a;font-weight:700;font-size:10px">✓ comprado</span>';
           }
           html+='<div class="li-det">'+stockTxt+(subtotal>0?' '+fmtRD(subtotal)+itbisLbl:'')+prevTxt+'</div></div>';
       html+='<input class="qi'+(qty?' hq':'')+'" type="number" min="0" step="0.5" inputmode="decimal" placeholder="—" value="'+qty+'" data-id="'+p.id+'" onchange="onLiQty(this)">';
@@ -1105,7 +1106,9 @@ function renderLista(){
         var chkCls='chk'+(done?' on':'');
         html+='<button class="'+chkCls+'" data-id="'+p.id+'" onclick="toggleLi(this.dataset.id)">'+( done?'✓':'○')+'</button>';
         html+='<button data-id="'+p.id+'" onclick="borrarItem(this.dataset.id)" style="padding:3px 7px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;cursor:pointer;color:#dc2626;margin-left:2px">🗑</button>';
-        if(done||(!qty&&item.compras&&item.compras.length>0)) html+='<button data-id="'+p.id+'" onclick="agregarMas(this.dataset.id)" style="padding:3px 8px;background:#e8f0fe;border:1.5px solid #1a6ef5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#0d4db5">+más</button>';
+      }
+      if(role==='jeidi'||role==='ramona'){
+        html+='<button data-id="'+p.id+'" onclick="agregarMas(this.dataset.id)" style="padding:3px 8px;background:#e8f0fe;border:1.5px solid #1a6ef5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#0d4db5">+más</button>';
       }
       html+='</div>';
     }
@@ -1299,19 +1302,37 @@ async function borrarProducto(id, nombre){
 }
 async function agregarMas(id){
   var cur=listaData[id]||{};
-  var prevQty=Number(cur.q||0);
-  var prevTienda=cur.ti||DTIENDA[id]||'S';
-  var prevPr=cur.pr||null;
+  var curTi=cur.ti||DTIENDA[id]||'S';
   var prevCompras=cur.compras||[];
-  // Save current qty+tienda+price into compras so it stays in that tienda's list
+  var prevQty=Number(cur.q||0);
+  var prevPr=cur.pr||null;
+  // Save current tienda qty+price in compras[] so it stays visible
   if(prevQty>0){
-    prevCompras.push({q:prevQty,u:cur.u||'',t:prevTienda,pr:prevPr,fecha:new Date().toLocaleDateString('es-DO')});
+    var alreadySaved=prevCompras.some(function(c){return c.t===curTi&&Number(c.q||0)===prevQty;});
+    if(!alreadySaved){
+      prevCompras.push({q:prevQty,u:cur.u||'',t:curTi,pr:prevPr,done:cur.c||false,fecha:new Date().toLocaleDateString('es-DO')});
+    }
   }
-  // Clear qty and comprado for the NEW entry, keep compras history
+  // Keep current tienda — user changes it manually with the selector
   listaData[id]={...cur,q:'',c:false,compras:prevCompras};
   await save('/lista/'+wk()+'/'+id,listaData[id]);
-  setSyncBar('✓ Listo — elige nueva tienda y agrega cantidad','sok');
+  setSyncBar('✓ Cambia la tienda con el selector y agrega la cantidad','sok');
   renderLista();
+  // Scroll to and highlight the product row
+  setTimeout(function(){
+    var inputs=document.querySelectorAll('#listaWrap input.qi[data-id="'+id+'"]');
+    for(var i=0;i<inputs.length;i++){
+      var row=inputs[i].closest('.li-row');
+      if(row){
+        row.scrollIntoView({behavior:'smooth',block:'center'});
+        row.style.background='#fef9c3';
+        row.style.transition='background 1.5s';
+        setTimeout(function(r){r.style.background='';},2000,row);
+        inputs[i].focus();
+        break;
+      }
+    }
+  },300);
 }
 function addITBIS(sel){
   var pct=parseFloat(sel.value);
@@ -1925,7 +1946,7 @@ function downloadListaTienda(tienda){
       (item.compras||[]).forEach(function(c){
         if((c.t||'S')===tienda&&Number(c.q||0)>0){
           var cpr=Number(c.pr||(prObj.pr||0));
-          prods.push({n:p.n,u:c.u||item.u||p.u,qty:Number(c.q),pr:cpr,cost:Number(c.q)*cpr,done:true,cat:cat.cat,nota:'anterior'});
+          prods.push({n:p.n,u:c.u||item.u||p.u,qty:Number(c.q),pr:cpr,cost:Number(c.q)*cpr,done:c.done===true,cat:cat.cat,nota:'anterior'});
         }
       });
     });
