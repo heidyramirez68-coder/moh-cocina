@@ -846,7 +846,11 @@ function renderCorregir(){
       html+='</div>';
     }
   }
-  document.getElementById('corrList').innerHTML=html||'<div class="empty"><div class="ei">🔍</div></div>';
+  var corrHeader='';
+  if(role==='jeidi'){
+    corrHeader='<button onclick="copiarStockSiguiente()" style="display:block;width:calc(100% - 16px);margin:8px;padding:11px;background:#16a34a;color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📦 Copiar stock restante → semana siguiente</button>';
+  }
+  document.getElementById('corrList').innerHTML=corrHeader+(html||'<div class="empty"><div class="ei">🔍</div></div>');
 }
 async function onStkV3(el){
   var id=el.dataset.id;
@@ -896,16 +900,18 @@ function calcListaTotal(){
   ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){
     var item=listaData[p.id]||{};
     var pti=item.ti||DTIENDA[p.id]||'S';
-    var prObj=precios[p.id+'_'+pti]||{};
-    var pr=Number(item.pr||prObj.pr||0);
+    // Same price lookup as downloadListaTienda
+    var prObj=precios[p.id+'_'+pti]||precios[p.id+'_P']||precios[p.id+'_S']||{};
+    var pr=Number(item.pr||(prObj.pr||0));
     // Cantidad actual
     var qty=Number(item.q||0);
     if(qty>0&&pr>0) totalRD+=qty*pr;
-    // Viajes anteriores con +más — usar precio guardado en ese viaje
+    // Viajes anteriores con +más — usar precio del viaje o fallback
     var prevCompras=item.compras||[];
     prevCompras.forEach(function(c){
       var cq=Number(c.q||0);
-      var cpr=Number(c.pr||pr||0);
+      var cprObj=precios[p.id+'_'+(c.t||pti)]||precios[p.id+'_P']||precios[p.id+'_S']||{};
+      var cpr=Number(c.pr||(cprObj.pr||0));
       if(cq>0&&cpr>0) totalRD+=cq*cpr;
     });
   });});
@@ -1015,10 +1021,14 @@ function renderLista(){
   for(var ti=0;ti<TIENDAS.length;ti++){
     var t=TIENDAS[ti];
     var prods=ALL_CATS.reduce(function(a,c){return a.concat(c.items);},[]).filter(function(p){
-      var pti=listaData[p.id]&&listaData[p.id].ti?listaData[p.id].ti:DTIENDA[p.id]||'S';
-      if(pti!==t) return false;
-      // Show if product exists in listaData (restored or has qty/compras)
-      return listaData[p.id]!=null;
+      if(!listaData[p.id]) return false;
+      var item=listaData[p.id];
+      var pti=item.ti||DTIENDA[p.id]||'S';
+      // Show under current tienda (any product in listaData for this tienda)
+      if(pti===t) return true;
+      // Also show under tiendas from compras[] (previous trips)
+      var prevC=item.compras||[];
+      return prevC.some(function(c){return (c.t||'S')===t&&Number(c.q||0)>0;});
     });
     var conQ=prods.filter(function(p){var it=listaData[p.id]||{};return Number(it.q||0)>0||it.c||(it.compras&&it.compras.length>0);});
     var pend=conQ.filter(function(p){return !listaData[p.id].c;}).length;
@@ -1027,19 +1037,26 @@ function renderLista(){
     for(var pi=0;pi<prods.length;pi++){
       var p=prods[pi];
       var item=listaData[p.id]||{};
-      var qty=item.q!=null?item.q:'';
-      var done=item.c||false;
-      var pr=item.pr!=null?item.pr:'';
-      var u=item.u||p.u;
       var curTi=item.ti||DTIENDA[p.id]||'S';
+      // Determine if we're showing this product under its current tienda or a compras tienda
+      var isComprasTienda=curTi!==t;
+      var compraEntry=null;
+      if(isComprasTienda){
+        var prevC2=item.compras||[];
+        compraEntry=prevC2.find(function(c){return (c.t||'S')===t&&Number(c.q||0)>0;})||null;
+      }
+      // Use compras entry data if showing under a compras tienda
+      var qty=isComprasTienda?(compraEntry?compraEntry.q:''):(item.q!=null?item.q:'');
+      var done=isComprasTienda?true:(item.c||false);
+      var pr=isComprasTienda?(compraEntry?compraEntry.pr||'':''):(item.pr!=null?item.pr:'');
+      var u=isComprasTienda?(compraEntry?compraEntry.u||item.u||p.u:item.u||p.u):(item.u||p.u);
       var stock=Number(weekData[sk(p.id)]||0);
       var used=totalUsed(p.id);
       var queda=Math.max(0,stock-used);
       var ptiSub=item.ti||DTIENDA[p.id]||'S';
-      var prWithITBIS=applyITBIS(Number(pr)||0, ptiSub);
-      var subtotal=qty&&pr?Number(qty)*prWithITBIS:0;
-      var itbisAmt=pr&&ITBIS_TIENDAS.indexOf(ptiSub)>-1?Math.round((prWithITBIS-Number(pr))*Number(qty)*100)/100:0;
-      var itbisLbl=itbisAmt>0?' <span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px;font-weight:700">+ITBIS: '+fmtRD(itbisAmt)+'</span>':'';
+      // Price entered is already the final price — no ITBIS applied on top
+      var subtotal=qty&&pr?Number(qty)*Number(pr):0;
+      var itbisLbl='';
       var stockTxt=queda>0?'<span style="color:#16a34a;font-weight:600">Queda: '+queda+'</span>':stock>0?'<span style="color:#dc2626;font-weight:600">Agotado</span>':'';
       html+='<div class="li-row'+(done?' done':'')+'">';
       html+='<div style="flex:1"><div class="li-name"'+(done?' style="text-decoration:line-through;opacity:0.5"':'')+'>'+p.n+'</div>';
@@ -1064,8 +1081,6 @@ function renderLista(){
       var prObjLi=precios[p.id+'_'+ptienda]||precios[p.id+'_P']||precios[p.id+'_S']||{};
       var prShow=pr||(prObjLi.pr||'');
       var ptiShow=item.ti||DTIENDA[p.id]||'S';
-      var hasITBIS=ITBIS_TIENDAS.indexOf(ptiShow)>-1;
-      var prConITBIS2=prShow?Math.round(Number(prShow)*1.14*100)/100:0;
       if(role==='jeidi'){
         html+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">';
         html+='<input class="qi'+(prShow?' hq':'')+'" type="number" min="0" step="1" inputmode="decimal" placeholder="RD$" value="'+prShow+'" data-id="'+p.id+'" onchange="onLiPr(this)" style="width:65px;background:'+(prShow?'#e8f0fe':'#fafafa')+';border-color:'+(prShow?'#1a6ef5':'#e5e7eb')+'">';
@@ -1285,12 +1300,17 @@ async function borrarProducto(id, nombre){
 async function agregarMas(id){
   var cur=listaData[id]||{};
   var prevQty=Number(cur.q||0);
+  var prevTienda=cur.ti||DTIENDA[id]||'S';
+  var prevPr=cur.pr||null;
   var prevCompras=cur.compras||[];
-  // Save qty, tienda AND price so it appears in the correct download list
-  prevCompras.push({q:prevQty,u:cur.u||'',t:cur.ti||DTIENDA[id]||'S',pr:cur.pr||null,fecha:new Date().toLocaleDateString('es-DO')});
+  // Save current qty+tienda+price into compras so it stays in that tienda's list
+  if(prevQty>0){
+    prevCompras.push({q:prevQty,u:cur.u||'',t:prevTienda,pr:prevPr,fecha:new Date().toLocaleDateString('es-DO')});
+  }
+  // Clear qty and comprado for the NEW entry, keep compras history
   listaData[id]={...cur,q:'',c:false,compras:prevCompras};
   await save('/lista/'+wk()+'/'+id,listaData[id]);
-  setSyncBar('✓ Listo — ahora elige tienda y agrega nueva cantidad','sok');
+  setSyncBar('✓ Listo — elige nueva tienda y agrega cantidad','sok');
   renderLista();
 }
 function addITBIS(sel){
@@ -1375,16 +1395,7 @@ async function renderPresupuesto(){
   const ramBudgetRD=Number(semInfo.ramBudget||0);
 
   const {totalRD:listaRD}=calcListaTotal();
-
-  // Also count prices*used from weekData
-  let usedRD=0;
-  ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
-    const pr=Number(precios[p.id]||0);
-    const used=totalUsed(p.id);
-    if(pr>0&&used>0)usedRD+=pr*used;
-  }));
-
-  const totalGastoRD=Math.max(listaRD,usedRD);
+  const totalGastoRD=listaRD;
   const remRD=budgetRD-totalGastoRD;
   const pct=budgetRD>0?Math.min(100,Math.round(totalGastoRD/budgetRD*100)):0;
   const bc=pct<70?'#16a34a':pct<90?'#d97706':'#dc2626';
@@ -1414,19 +1425,53 @@ async function renderPresupuesto(){
   </div>`;
 
   if(isJ){
-    html+=`<div class="bcard">
-      <div class="btit">✏️ Editar presupuesto</div>
-      <div class="bsub">En dólares — se convierte a pesos con la tasa</div>
-      <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">💱 Tasa (1 USD = ? RD$)</label>
-      <input class="binp" type="number" id="ptasa" value="${tasa}" placeholder="60" step="0.5">
-      <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👔 Staff semanal (USD)</label>
-      <input class="binp" type="number" id="pstaff" value="${staffUSD}" placeholder="900">
-      <label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👥 Grupos ${MESES[presMonth]} — total mes (USD)</label>
-      <input class="binp" type="number" id="pgrp" value="${grpUSD||0}" placeholder="Ej: 25690">
-      <label style="font-size:10px;font-weight:700;color:#d97706;display:block;margin-bottom:4px">💰 Presupuesto para Ramona esta semana (RD$)</label>
-      <input class="binp" type="number" id="pram" value="${ramBudgetRD||0}" placeholder="Ej: 50000">
-      <button class="bbtn" onclick="savePresupuesto()">💾 Guardar presupuesto</button>
-    </div>`;
+    // Calculate monthly totals
+    var mesKey='mes_RD_'+new Date().getFullYear()+'_'+presMonth;
+    var mesRD=Number(presData[mesKey]||0);
+    // Sum all weekly spending this month
+    var gastoMesRD=0;
+    Object.keys(presData).forEach(function(k){
+      if(k.startsWith('gasto_sem_')){
+        // Check if this week belongs to current month
+        var parts=k.replace('gasto_sem_','').split('_');
+        if(parts.length>=2&&Number(parts[1])-1===presMonth) gastoMesRD+=Number(presData[k]||0);
+      }
+    });
+    // Also add current week spending
+    gastoMesRD+=totalGastoRD;
+    var disponibleMes=mesRD>0?mesRD-gastoMesRD:0;
+    var pctMes=mesRD>0?Math.min(100,Math.round(gastoMesRD/mesRD*100)):0;
+    var bcMes=pctMes<70?'#16a34a':pctMes<90?'#d97706':'#dc2626';
+
+    if(mesRD>0){
+      html+='<div class="bcard" style="border:1px solid '+bcMes+'">';
+      html+='<div class="btit">📆 Presupuesto Mensual — '+MESES[presMonth]+'</div>';
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:8px 0">';
+      html+='<div class="bst"><div class="bstn" style="color:#0d4db5">'+fmtRD(mesRD)+'</div><div class="bstl">Total mes</div></div>';
+      html+='<div class="bst"><div class="bstn" style="color:'+bcMes+'">'+fmtRD(gastoMesRD)+'</div><div class="bstl">Gastado</div></div>';
+      html+='<div class="bst" style="background:'+(disponibleMes>=0?'#f0fdf4':'#fee2e2')+'"><div class="bstn" style="color:'+(disponibleMes>=0?'#16a34a':'#dc2626')+'">'+fmtRD(Math.abs(disponibleMes))+'</div><div class="bstl">'+(disponibleMes>=0?'Disponible':'Excedido')+'</div></div>';
+      html+='</div>';
+      html+='<div style="background:#e5e7eb;border-radius:5px;height:8px"><div style="height:8px;border-radius:5px;background:'+bcMes+';width:'+pctMes+'%"></div></div>';
+      html+='<div style="font-size:10px;color:#6b7280;text-align:right;margin-top:3px">'+pctMes+'% ejecutado</div>';
+      html+='</div>';
+    }
+
+    html+='<div class="bcard">'
+      +'<div class="btit">✏️ Editar presupuesto</div>'
+      +'<div class="bsub">Presupuesto mensual en pesos · Ramona por semana</div>'
+      +'<label style="font-size:10px;font-weight:700;color:#0d4db5;display:block;margin-bottom:4px">📆 Presupuesto total del mes '+MESES[presMonth]+' (RD$)</label>'
+      +'<input class="binp" type="number" id="pmesRD" value="'+(mesRD||'')+'" placeholder="Ej: 1757400">'
+      +'<label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">💱 Tasa (1 USD = ? RD$)</label>'
+      +'<input class="binp" type="number" id="ptasa" value="'+tasa+'" placeholder="60" step="0.5">'
+      +'<label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👔 Staff semanal (USD)</label>'
+      +'<input class="binp" type="number" id="pstaff" value="'+staffUSD+'" placeholder="900">'
+      +'<label style="font-size:10px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px">👥 Grupos '+MESES[presMonth]+' — total mes (USD)</label>'
+      +'<input class="binp" type="number" id="pgrp" value="'+(grpUSD||0)+'" placeholder="Ej: 25690">'
+      +'<label style="font-size:10px;font-weight:700;color:#d97706;display:block;margin-bottom:4px">💰 Presupuesto Ramona esta semana (RD$)</label>'
+      +'<input class="binp" type="number" id="pram" value="'+(ramBudgetRD||0)+'" placeholder="Ej: 400000">'
+      +'<button class="bbtn" onclick="savePresupuesto()">💾 Guardar presupuesto</button>'
+      +'<button style="width:100%;padding:10px;background:#7c3aed;color:white;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px" onclick="cerrarSemanaYCarrySobrante()">📤 Cerrar semana — pasar sobrante de Ramona →</button>'
+      +'</div>';
   }
 
   // Top costosos from lista
@@ -1497,26 +1542,51 @@ async function savePresupuesto(){
   var staff=document.getElementById('pstaff').value;
   var grp=document.getElementById('pgrp').value;
   var ram=document.getElementById('pram').value;
+  var mesRD=document.getElementById('pmesRD')?document.getElementById('pmesRD').value:'';
   var key='g_'+new Date().getFullYear()+'_'+presMonth;
-  presData.tasa=Number(tasa);presData.staff_weekly=Number(staff);presData[key]=Number(grp);
+  var mesKey='mes_RD_'+new Date().getFullYear()+'_'+presMonth;
+  presData.tasa=Number(tasa);
+  presData.staff_weekly=Number(staff);
+  presData[key]=Number(grp);
+  if(mesRD) presData[mesKey]=Number(mesRD);
   semInfo.ramBudget=Number(ram)||0;
   await save('/presupuesto',presData);
-  // Save ramBudget per week so it doesn't disappear when changing weeks
   await save('/semanaInfo/'+wk()+'/ramBudget',Number(ram)||null);
   setSyncBar('✓ Presupuesto guardado','sok');
+  renderPresupuesto();
+}
+
+async function cerrarSemanaYCarrySobrante(){
+  // Calculate Ramona's leftover and carry to next week
+  var tot=calcListaTotal();
+  var gastado=tot.totalRD;
+  var ramBudget=Number(semInfo.ramBudget||0);
+  var sobrante=Math.max(0,ramBudget-gastado);
+  // Save this week's spending to presupuesto
+  var mesKey='gasto_sem_'+wk();
+  presData[mesKey]=gastado;
+  await save('/presupuesto/'+mesKey,gastado||null);
+  // Carry leftover to next week
+  if(sobrante>0){
+    var d2=new Date(weekStart);d2.setDate(d2.getDate()+7);
+    var nextWk=d2.toISOString().slice(0,10).replace(/-/g,'_');
+    var nextSemInfo=await DB.get('/semanaInfo/'+nextWk)||{};
+    var nextBudget=Number(nextSemInfo.ramBudget||0)+sobrante;
+    await save('/semanaInfo/'+nextWk+'/ramBudget', nextBudget);
+    alert('✅ Semana cerrada.\nSobrante de Ramona: '+fmtRD(sobrante)+'\nSe sumó al presupuesto de la semana siguiente: '+fmtRD(nextBudget));
+  } else {
+    alert('✅ Semana cerrada.\nNo hubo sobrante de Ramona.');
+  }
+  setSyncBar('✓ Semana cerrada — sobrante pasado a siguiente semana','sok');
   renderPresupuesto();
 }
 async function onPrEdit(el){
   var id=el.dataset.id;var t=el.dataset.t||'P';var v=el.value;
   var key=id+'_'+t;
-  var prBase=v===''?null:Number(v);
-  // Auto-apply ITBIS for supermercado/cafe
-  var prFinal=prBase&&ITBIS_TIENDAS.indexOf(t)>-1?Math.round(prBase*1.14*100)/100:prBase;
+  var prFinal=v===''?null:Number(v);
   if(!precios[key])precios[key]={};
   if(v===''){delete precios[key].pr;}else{precios[key].pr=prFinal;}
   await save('/precios/'+key,precios[key]);
-  // Show final price in input
-  if(prFinal&&prFinal!==prBase){el.value=prFinal;}
   el.style.background=v?'#e8f0fe':'white';
   el.style.borderColor=v?'#1a6ef5':'#e5e7eb';
   if(listaData[id]){
@@ -1526,7 +1596,7 @@ async function onPrEdit(el){
       await save('/lista/'+wk()+'/'+id,listaData[id]);
     }
   }
-  setSyncBar('✓ Precio guardado'+(prFinal!==prBase?' (ITBIS incluido)':''),'sok');
+  setSyncBar('✓ Precio guardado','sok');
   renderPresupuesto();
 }
 var _prTab='P';
@@ -1845,24 +1915,19 @@ function downloadListaTienda(tienda){
     cat.items.forEach(function(p){
       var item=listaData[p.id]||{};
       var pti=item.ti||(DTIENDA[p.id]||'S');
-      // Cantidad actual en esta tienda
+      var prObj=precios[p.id+'_'+tienda]||precios[p.id+'_P']||precios[p.id+'_S']||{};
+      var pr=Number(item.pr||(prObj.pr||0));
+      // Cantidad actual en esta tienda (pendiente o comprado)
       if(pti===tienda&&Number(item.q||0)>0){
-        var prObj=precios[p.id+'_'+tienda]||precios[p.id+'_P']||precios[p.id+'_S']||{};
-        var pr=Number(item.pr||(prObj.pr||0));
         prods.push({n:p.n,u:item.u||p.u,qty:Number(item.q),pr:pr,cost:Number(item.q)*pr,done:item.c||false,cat:cat.cat});
       }
-      // Viajes anteriores en esta tienda (incluye productos marcados comprado con +más)
+      // Viajes anteriores via +más (guardados en compras[])
       (item.compras||[]).forEach(function(c){
         if((c.t||'S')===tienda&&Number(c.q||0)>0){
-          var cprObj=precios[p.id+'_'+tienda]||precios[p.id+'_P']||precios[p.id+'_S']||{};
-          var cpr=Number(c.pr||(cprObj.pr||0));
+          var cpr=Number(c.pr||(prObj.pr||0));
           prods.push({n:p.n,u:c.u||item.u||p.u,qty:Number(c.q),pr:cpr,cost:Number(c.q)*cpr,done:true,cat:cat.cat,nota:'anterior'});
         }
       });
-      // Producto comprado (done) sin haber usado +más - también aparece
-      if(item.c&&Number(item.q||0)>0&&pti===tienda){
-        // Already included above in "cantidad actual" section
-      }
     });
   });
   if(!prods.length){alert('No hay productos con cantidad para '+tFull[tienda]);return;}
@@ -1968,15 +2033,17 @@ async function saveNewProduct(){
   var tienda=document.getElementById('npTienda').value;
   if(!nombre){alert('Escribe el nombre del producto');return;}
   var id='custom_'+Date.now();
-  var newProd={id:id,n:nombre,u:unidad,t:tienda,custom:true};
-  // Add to ALL_CATS
-  var catObj=ALL_CATS.find(function(c){return c.cat===cat;});
-  if(catObj) catObj.items.push(newProd);
   DTIENDA[id]=tienda;
   // Save to Firebase
   await DB.set('/customProducts/'+id,{n:nombre,u:unidad,t:tienda,cat:cat});
   listaData[id]={u:unidad,ti:tienda,pr:null};
   await DB.set('/lista/'+wk()+'/'+id,listaData[id]);
+  // Add to ALL_CATS only once
+  var alreadyIn=ALL_CATS.some(function(c){return c.items.some(function(p){return p.id===id;});});
+  if(!alreadyIn){
+    var catObj=ALL_CATS.find(function(c){return c.cat===cat;});
+    if(catObj) catObj.items.push({id:id,n:nombre,u:unidad,t:tienda,custom:true});
+  }
   document.getElementById('addProdModal').style.display='none';
   alert('✅ Producto "'+nombre+'" agregado correctamente.');
   renderLista();
@@ -2123,12 +2190,18 @@ async function loadCustomProducts(){
   try{
     var custom=await DB.get('/customProducts');
     if(!custom)return;
+    // Build flat set of existing IDs to prevent duplicates
+    var existingIds=new Set();
+    ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){existingIds.add(p.id);});});
     Object.entries(custom).forEach(function(entry){
       var id=entry[0],p=entry[1];
       DTIENDA[id]=p.t||'S';
-      var catObj=ALL_CATS.find(function(c){return c.cat===p.cat;})||ALL_CATS[0];
-      if(catObj&&!catObj.items.find(function(x){return x.id===id;})){
-        catObj.items.push({id:id,n:p.n,u:p.u,t:p.t||'S',custom:true});
+      if(!existingIds.has(id)){
+        var catObj=ALL_CATS.find(function(c){return c.cat===p.cat;})||ALL_CATS[0];
+        if(catObj){
+          catObj.items.push({id:id,n:p.n,u:p.u,t:p.t||'S',custom:true});
+          existingIds.add(id);
+        }
       }
     });
   }catch(e){}
@@ -2434,6 +2507,32 @@ function renderDashboard(){
   el.innerHTML=html;
 }
 
+async function copiarStockSiguiente(){
+  if(!confirm('¿Copiar el stock restante de esta semana a la semana siguiente?\nEsto sobreescribirá el stock inicial de la semana siguiente.')) return;
+  var prevWk=wk();
+  var prevData=await DB.get('/semanas/'+prevWk)||{};
+  var d2=new Date(weekStart);d2.setDate(d2.getDate()+7);
+  var nextWk=d2.toISOString().slice(0,10).replace(/-/g,'_');
+  var nextData={};
+  var count=0;
+  ALL_CATS.forEach(function(cat){cat.items.forEach(function(p){
+    var stock=Number(prevData['s_'+p.id]||0);
+    var used=0;
+    for(var day=0;day<7;day++){for(var meal=0;meal<4;meal++){used+=Number(prevData['d'+day+'_m'+meal+'_'+p.id]||0);}}
+    var quedo=Math.max(0,stock-used);
+    if(quedo>0){
+      nextData['s_'+p.id]=quedo;
+      nextData['sd_'+p.id]=quedo+(p.u?' '+p.u.split('-')[0].trim():'');
+      count++;
+    }
+  });});
+  if(count===0){alert('No hay stock restante para copiar.');return;}
+  var existing=await DB.get('/semanas/'+nextWk)||{};
+  Object.keys(nextData).forEach(function(k){existing[k]=nextData[k];});
+  await DB.set('/semanas/'+nextWk, existing);
+  setSyncBar('✓ Stock copiado a semana '+nextWk+' ('+count+' productos)','sok');
+  alert('✅ Stock copiado correctamente a la semana '+nextWk+'\n'+count+' productos con stock restante.');
+}
 function downloadHistorial(){
   DB.get('/historial').then(hist=>{
     if(!hist){alert('Sin historial para descargar');return;}
