@@ -278,12 +278,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <script>
-// ── FIREBASE REST API ─────────────────────────────────────
+// ── FIREBASE AUTH + REST API ──────────────────────────────
 const DB_URL='https://moh--cocina-default-rtdb.firebaseio.com';
+const FB_API_KEY='AIzaSyDd_0nfrOyUfMvdlsiFL3dFiTzd-_FOHHU';
+var _fbToken=null;
+
+async function fbSignIn(){
+  try{
+    var r=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+FB_API_KEY,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({returnSecureToken:true})
+    });
+    var d=await r.json();
+    if(d.idToken){_fbToken=d.idToken;return true;}
+    return false;
+  }catch(e){return false;}
+}
+
 const DB={
-  async get(p){try{const r=await fetch(DB_URL+p+'.json?t='+Date.now());return await r.json();}catch(e){return null;}},
-  async set(p,v){try{await fetch(DB_URL+p+'.json',{method:'PUT',body:JSON.stringify(v),headers:{'Content-Type':'application/json'}});}catch(e){}},
-  async push(p,v){try{await fetch(DB_URL+p+'.json',{method:'POST',body:JSON.stringify(v),headers:{'Content-Type':'application/json'}});}catch(e){}}
+  async get(p){
+    try{
+      var url=DB_URL+p+'.json?t='+Date.now()+(_fbToken?'&auth='+_fbToken:'');
+      const r=await fetch(url);return await r.json();
+    }catch(e){return null;}
+  },
+  async set(p,v){
+    try{
+      var url=DB_URL+p+'.json'+(_fbToken?'?auth='+_fbToken:'');
+      await fetch(url,{method:'PUT',body:JSON.stringify(v),headers:{'Content-Type':'application/json'}});
+    }catch(e){}
+  },
+  async push(p,v){
+    try{
+      var url=DB_URL+p+'.json'+(_fbToken?'?auth='+_fbToken:'');
+      await fetch(url,{method:'POST',body:JSON.stringify(v),headers:{'Content-Type':'application/json'}});
+    }catch(e){}
+  }
 };
 
 // ── ROLES ─────────────────────────────────────────────────
@@ -532,7 +562,7 @@ function fmtRD(n){return 'RD$ '+Number(Math.abs(n)).toLocaleString('es-DO',{mini
 function fmtUSD(n){return '$ '+Number(Math.abs(n)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 // ── LOGIN ─────────────────────────────────────────────────
-document.getElementById('loginBtn').onclick=function(){
+document.getElementById('loginBtn').onclick=async function(){
   var pin=parseInt(document.getElementById('pinInp').value);
   var r=ROLES[pin];
   if(!r){document.getElementById('loginErr').style.display='block';return;}
@@ -540,6 +570,8 @@ document.getElementById('loginBtn').onclick=function(){
   role=r;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
+  // Sign in anonymously to Firebase before loading data
+  if(!_fbToken) await fbSignIn();
   setupApp();
 };
 document.getElementById('pinInp').addEventListener('keyup',function(e){if(e.key==='Enter')document.getElementById('loginBtn').click();});
