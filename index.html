@@ -1832,19 +1832,29 @@ function downloadReporteSemana(){try{
   ALL_CATS.forEach(cat=>cat.items.forEach(p=>{
     const item=listaData[p.id]||{};
     const pti=item.ti||DTIENDA[p.id]||'S';
-    const prObj=precios[p.id+'_'+pti]||{};
-    const pr=Number(item.pr||prObj.pr||0);
     const u=item.u||p.u;
-    // cantidad actual + viajes anteriores
+    // Cantidad actual — usar solo item.pr igual que calcListaTotal
     const qtyCur=Number(item.q||0);
-    const prevC=item.compras||[];
-    const qtyPrev=prevC.reduce((s,c)=>s+Number(c.q||0),0);
-    const qtyTotal=qtyCur+qtyPrev;
-    if(qtyTotal>0){
-      const cost=qtyTotal*pr;
+    const pr=Number(item.pr||0);
+    if(qtyCur>0&&pr>0){
+      const cost=qtyCur*pr;
       grandTotal+=cost;
-      tiendaProds[pti].push({n:p.n,u,qtyCur,qtyPrev,qtyTotal,pr,cost});
+      if(!tiendaProds[pti]) tiendaProds[pti]=[];
+      tiendaProds[pti].push({n:p.n,u,qtyCur,qtyPrev:0,qtyTotal:qtyCur,pr,cost});
     }
+    // Viajes anteriores via +más — cada uno con su tienda y precio propio
+    const prevC=item.compras||[];
+    prevC.forEach(function(c){
+      var cq=Number(c.q||0);
+      var cpr=Number(c.pr||0);
+      var ct=c.t||pti;
+      if(cq>0&&cpr>0){
+        var ccost=cq*cpr;
+        grandTotal+=ccost;
+        if(!tiendaProds[ct]) tiendaProds[ct]=[];
+        tiendaProds[ct].push({n:p.n,u:c.u||u,qtyCur:0,qtyPrev:cq,qtyTotal:cq,pr:cpr,cost:ccost});
+      }
+    });
   }));
 
   // Calcular total por tienda para presupuesto
